@@ -4,7 +4,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-export const WASM_DIR = join(ROOT, "build", "wasm");
+// Mismo directorio que tools/build-core.mjs (ZX_BUILD_DIR permite uno por agente).
+export const WASM_DIR = join(ROOT, process.env.ZX_BUILD_DIR ?? join("build", "wasm"));
 export const FIXTURES = join(ROOT, "tests", "fixtures");
 
 export type WasmName = "core" | "core-probe" | "core-test";

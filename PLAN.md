@@ -65,6 +65,8 @@ entre sí. Cada uno trabaja contra stubs o mocks hasta la integración.
   3. Tablas precalculadas de flags (SZ, SZP, XF/YF) en arrays estáticos `const`.
   4. Interrupciones (IM0/1/2, NMI, retardo de EI, bug de P/V en LD A,I/R), HALT, R.
   5. Todo lo no documentado de docs §9.
+  6. Runners propios de CPU-01 (FUSE) y CPU-20 (zexdoc/zexall) en `tests/core/cpu/`,
+     para no depender de T1 (el oráculo sigue siendo externo).
 - **Aceptación:** 100 % FUSE `tests.in` (registros, memoria, T-states y eventos de bus);
   100 % SingleStepTests/z80 (estado y ciclos); zexdoc y zexall sin errores en
   `core-test.wasm`.
@@ -72,8 +74,11 @@ entre sí. Cada uno trabaja contra stubs o mocks hasta la integración.
 ### T1 — Arnés de tests del núcleo
 - **Diseño de los tests:** [docs/TEST-PLAN.md](docs/TEST-PLAN.md) (IDs CPU-*, ULA-*, SYS-*).
   Los modelos de referencia `tests/ref/` los escribe un agente distinto de C1/M1.
-- **Posee:** `core/src/testbus.c`, `tests/core/**`, `tests/ref/**`, `tests/util/**`,
+- **Posee:** `core/src/testbus.c`, `tests/ref/**`, `tests/util/**` (salvo `wasm.ts`),
+  `tests/core/ula/**`, `tests/core/cpu/singlestep*`, `tests/core/cpu/rak*`,
   `tools/fetch-tests.mjs` (tras 0.4), `tools/mutate.mjs`
+- **Ajuste de fase 1:** los runners de FUSE y zex los escribe C1; T1 hace SingleStepTests,
+  los modelos REF, las utilidades (`screenText`, `typeKeys`) y los tests ULA-* basados en REF.
 - **Depende de:** 0.5 (trabaja con el stub de CPU; los tests fallarán hasta que C1 avance, eso es lo esperado)
 - **Trabajo:**
   1. `testbus.c`: 64 KB planos, contador de T-states, **registro de eventos de bus**
@@ -117,10 +122,14 @@ entre sí. Cada uno trabaja contra stubs o mocks hasta la integración.
   reloj de audio como maestro.
 
 ### M3 — Cinta y snapshots
-- **Posee:** `core/src/tape.c`, `core/src/snap.c`, `tests/core/snap*.test.ts`
+- **Posee:** `core/src/tape.c`, `core/src/snap.c`, `tests/core/tape/**`, `tests/core/snap/**`
 - **Depende de:** 0.5
 - **Trabajo:** parser TAP; trampa LD-BYTES (docs §10) incluyendo verificar, flag
   incorrecto y fin de cinta; carga SNA y Z80 v1/v2/v3 (48K, descompresión); guardado SNA.
+  **Ampliación:** reproducción del TAP por pulsos (tonos guía, sincronismo y bits con
+  timings estándar de la ROM → bit 6 del puerto 0xFE) como respaldo para cargadores
+  que no pasan por LD-BYTES. Caso real: `tests/fixtures-local/sootland/SHOTLAND.TAP`
+  (juego del usuario, multicarga con bloques sin cabecera de flags 01/05/02/06).
 - **Aceptación:** round-trip SNA bit a bit; Z80 comprimido de prueba generado en el test
   y descomprimido idéntico; carga por trampa de un TAP de cabecera+datos sintético deja
   la memoria y los registros como la ROM.
