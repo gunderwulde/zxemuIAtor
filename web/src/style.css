@@ -79,6 +79,27 @@ button[aria-pressed="true"] { background: #3a3520; border-color: var(--accent); 
 }
 .log:empty { display: none; }
 
+/* ---- Pestañas (U1) ---- */
+.tabbar { display: flex; align-items: stretch; background: var(--panel-2); border-bottom: 1px solid var(--line); min-height: 30px; }
+.tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.tab {
+  display: flex; align-items: center; gap: 4px; flex: none;
+  padding: 0 4px 0 10px; border-right: 1px solid var(--line);
+  color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap;
+  font: 12px ui-monospace, "Cascadia Code", Consolas, monospace;
+  border-top: 2px solid transparent;
+}
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { background: var(--panel); color: var(--text); border-top-color: var(--accent); }
+.tab:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+.tab.dragging { opacity: 0.5; }
+.tab-ro .tab-name { font-style: italic; }
+.tab-main { color: var(--accent); font-size: 9px; }
+.tab-x { padding: 0 5px; border: none; background: none; color: inherit; line-height: 1; border-radius: 3px; opacity: 0.6; }
+.tab-x:hover:not(:disabled) { opacity: 1; background: #2b2f37; }
+.tab-rename { width: auto; font: inherit; background: #2b2f37; color: var(--text); border: 1px solid var(--accent-2); border-radius: 3px; padding: 0 3px; }
+#tab-new { border: none; border-left: 1px solid var(--line); border-radius: 0; background: var(--panel-2); padding: 0 8px; flex: none; }
+
 /* ---- Emulador ---- */
 .screen-wrap {
   position: relative; flex: 1; min-height: 0;

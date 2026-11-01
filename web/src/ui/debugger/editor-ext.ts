@@ -1,9 +1,10 @@
 // D1: extensiones de CodeMirror para el depurador, instaladas sobre el EditorView del
-// editor de I1 con StateEffect.appendConfig (sin tocar ui/editor/index.ts):
+// editor de I1 con StateEffect.appendConfig (sin tocar ui/editor/index.ts), o incluidas
+// en cada EditorState con debugExtension (U1: un estado por pestaña):
 //  - margen de breakpoints por línea (clic o F9); los marcadores siguen a su línea
 //    cuando se edita el texto (RangeSet.map);
 //  - línea actual (PC dentro del programa ensamblado) resaltada.
-import { RangeSet, StateEffect, StateField, type Range } from "@codemirror/state";
+import { type EditorState, type Extension, RangeSet, StateEffect, StateField, type Range } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, GutterMarker, gutter } from "@codemirror/view";
 
 class BpMarker extends GutterMarker {
@@ -71,13 +72,47 @@ export interface EditorDebugHandle {
   cursorLine(): number;
 }
 
+/** Líneas (1-based) con breakpoint en un estado que lleve debugExtension. */
+export function bpLinesOf(state: EditorState): number[] {
+  const out = new Set<number>();
+  const doc = state.doc;
+  state.field(bpField, false)?.between(0, doc.length, (from) => { out.add(doc.lineAt(from).number); });
+  return [...out].sort((a, b) => a - b);
+}
+
+/** Efectos para fijar los breakpoints o la línea actual de un estado (U1: pestañas que no están a la vista). */
+export const bpLinesEffect = (lines: number[]) => setBpLines.of(lines);
+export const currentLineEffect = (line: number | null) => setCurrent.of(line);
+
+/**
+ * Margen de breakpoints y línea actual, para incluirlo al crear cada EditorState (U1: un
+ * estado por pestaña). `onChange` se llama cuando puede haber cambiado algún breakpoint.
+ */
+export function debugExtension(onChange: (state: EditorState) => void): Extension {
+  return [
+    bpField,
+    currentField,
+    gutter({
+      class: "dbg-bp-gutter",
+      markers: (v) => v.state.field(bpField),
+      initialSpacer: () => BP,
+      domEventHandlers: {
+        mousedown(v, line) { v.dispatch({ effects: toggleBpAt.of(line.from) }); return true; },
+      },
+    }),
+    EditorView.updateListener.of((u) => {
+      if (u.docChanged || u.transactions.some((t) => t.effects.some((e) => e.is(toggleBpAt) || e.is(setBpLines)))) onChange(u.state);
+    }),
+  ];
+}
+
+/** Breakpoint en la línea del cursor de `view`. */
+export function toggleBpAtCursor(view: EditorView): void {
+  view.dispatch({ effects: toggleBpAt.of(view.state.doc.lineAt(view.state.selection.main.head).from) });
+}
+
 export function attachEditorDebug(view: EditorView, onBpsChanged: (lines: number[]) => void): EditorDebugHandle {
-  const lines = (): number[] => {
-    const out = new Set<number>();
-    const doc = view.state.doc;
-    view.state.field(bpField).between(0, doc.length, (from) => { out.add(doc.lineAt(from).number); });
-    return [...out].sort((a, b) => a - b);
-  };
+  const lines = (): number[] => bpLinesOf(view.state);
   let last = "";
   const notify = () => {
     const l = lines();
@@ -86,23 +121,7 @@ export function attachEditorDebug(view: EditorView, onBpsChanged: (lines: number
   };
   const toggleLine = (from: number) => view.dispatch({ effects: toggleBpAt.of(from) });
 
-  view.dispatch({
-    effects: StateEffect.appendConfig.of([
-      bpField,
-      currentField,
-      gutter({
-        class: "dbg-bp-gutter",
-        markers: (v) => v.state.field(bpField),
-        initialSpacer: () => BP,
-        domEventHandlers: {
-          mousedown(_v, line) { toggleLine(line.from); return true; },
-        },
-      }),
-      EditorView.updateListener.of((u) => {
-        if (u.docChanged || u.transactions.some((t) => t.effects.some((e) => e.is(toggleBpAt) || e.is(setBpLines)))) notify();
-      }),
-    ]),
-  });
+  view.dispatch({ effects: StateEffect.appendConfig.of(debugExtension(notify)) });
 
   return {
     bpLines: lines,

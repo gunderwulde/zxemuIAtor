@@ -19,7 +19,8 @@ export const SOURCE_KEY = "zx.editor.source";
 const SAVE_DELAY = 400;
 const LINT_DELAY = 500;
 
-const highlight = HighlightStyle.define([
+/** Colores del resaltado (Z80 y, desde U1, C: funciones, builtins de la librería, constantes, caracteres). */
+export const highlight = HighlightStyle.define([
   { tag: t.keyword, color: "#e6d23a", fontWeight: "600" },
   { tag: t.meta, color: "#c792ea" },
   { tag: t.typeName, color: "#3fb8e6" },
@@ -31,9 +32,14 @@ const highlight = HighlightStyle.define([
   { tag: t.macroName, color: "#ffcb6b" },
   { tag: [t.operator, t.operatorKeyword], color: "#89ddff" },
   { tag: t.invalid, color: "#ff6b5e", textDecoration: "underline wavy" },
+  { tag: t.character, color: "#6fd28a" },
+  { tag: t.special(t.string), color: "#b8c2d0" },
+  { tag: t.function(t.variableName), color: "#82aaff" },
+  { tag: t.standard(t.variableName), color: "#4fd6be", fontWeight: "600" },
+  { tag: t.constant(t.variableName), color: "#f78c6c" },
 ]);
 
-const theme = EditorView.theme({
+export const theme = EditorView.theme({
   "&": { flex: "1", minWidth: "0", height: "100%", backgroundColor: "transparent", color: "var(--text)" },
   ".cm-scroller": { fontFamily: 'ui-monospace, "Cascadia Code", Consolas, monospace', fontSize: "14px", lineHeight: "1.5" },
   ".cm-content": { caretColor: "var(--accent)" },

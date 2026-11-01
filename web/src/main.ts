@@ -6,10 +6,11 @@ import { KeyState, attachKeyboard } from "./emu/input";
 import { Loop, type LoopAudio } from "./emu/loop";
 import { loadFile } from "./ui/files";
 import { initSplitter, loadPref, savePref } from "./ui/layout";
-import { attachExamples, mountEditor } from "./ui/editor";
-import { assembleAndRun, type RunMessage } from "./ui/run";
-import { mountDebugger } from "./ui/debugger";
-import { downloadBytes, exportSourceTap, stampedName } from "./export";
+import { DEFAULT_EXAMPLE, EXAMPLES } from "./ui/editor/examples";
+import type { RunMessage } from "./ui/run";
+import { CLIB_FILES, C_EXAMPLES, DEFAULT_C_EXAMPLE } from "./clib";
+import { TabsEditor, buildAndRun, buildTapFor, mountTabsDebugger, type TabKind, type TabsDebugger } from "./ui/tabs";
+import { downloadBytes, stampedName } from "./export";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -39,7 +40,7 @@ function showMessage(text: string, kind: "error" | "info"): void {
 const fmt = (x: number, d: number) => x.toFixed(d).replace(".", ",");
 const hex4 = (x: number) => x.toString(16).toUpperCase().padStart(4, "0");
 
-// ---- IDE (I1): se monta antes que el núcleo, así se puede editar aunque éste falle ----
+// ---- IDE (I1, U1: pestañas): se monta antes que el núcleo, así se puede editar aunque éste falle ----
 const asmLog = $<HTMLPreElement>("asm-log");
 function showLog(lines: RunMessage[]): void {
   asmLog.replaceChildren(...lines.map((m) => {
@@ -49,17 +50,77 @@ function showLog(lines: RunMessage[]): void {
     return s;
   }));
 }
+const say = (text: string) => showLog([{ severity: "info", text }]);
 let runProgram: (() => void) | null = null;
-const editor = mountEditor($("editor"), { onRun: () => runProgram?.() });
-attachExamples($<HTMLSelectElement>("asm-example"), editor, (title) =>
-  showLog([{ severity: "info", text: `Cargado el ejemplo «${title}» (Ctrl+Z lo deshace). Ctrl+Enter para ejecutarlo.` }]));
+let dbgUi: TabsDebugger | null = null;
+const tabs = new TabsEditor({
+  bar: $("tabs"),
+  host: $("editor"),
+  prefs: { get: loadPref, set: savePref },
+  defaults: { asm: DEFAULT_EXAMPLE.source, c: DEFAULT_C_EXAMPLE.source },
+  onRun: () => runProgram?.(),
+  say,
+  onBpsChanged: () => dbgUi?.syncSourceBps(),
+  onSwitch: () => dbgUi?.showCurrent(),
+});
+// Si se cierra la página antes del guardado diferido.
+addEventListener("pagehide", () => tabs.save());
 
-// ---- Exportar TAP (E1): sólo ensambla, no necesita el núcleo ----
+/** Lo que se ejecuta: la pestaña activa si es un programa; si no, la principal. */
+function runTarget() {
+  tabs.flush();
+  const t = tabs.model.runTarget();
+  if (!t) showLog([{ severity: "error", text: "No hay nada que ejecutar: abre una pestaña .asm o un .c con main()." }]);
+  return t;
+}
+
+// Ejemplos ASM y C: se abren en una pestaña nueva (no se pierde nada).
+const exSel = $<HTMLSelectElement>("asm-example");
+{
+  exSel.replaceChildren(new Option("Ejemplos…", ""));
+  const groups: [string, "asm" | "c", readonly { id: string; title: string }[]][] = [["Ensamblador Z80", "asm", EXAMPLES], ["C", "c", C_EXAMPLES]];
+  for (const [label, kind, list] of groups) {
+    const g = document.createElement("optgroup");
+    g.label = label;
+    for (const ex of list) g.append(new Option(ex.title, `${kind}:${ex.id}`));
+    exSel.append(g);
+  }
+  exSel.onchange = () => {
+    const [kind, id] = exSel.value.split(":") as ["asm" | "c", string];
+    exSel.value = "";
+    const ex = (kind === "asm" ? EXAMPLES : C_EXAMPLES).find((e) => e.id === id);
+    if (!ex) return;
+    const tab = tabs.openExample(ex.id, kind, ex.source);
+    tabs.view.focus();
+    say(`Abierto el ejemplo «${ex.title}» en «${tab.name}». Ctrl+Enter para ejecutarlo.`);
+  };
+}
+const libSel = $<HTMLSelectElement>("lib-view");
+libSel.replaceChildren(new Option("Ver librería…", ""), ...[...CLIB_FILES.keys()].map((n) => new Option(n, n)));
+libSel.onchange = () => {
+  const f = libSel.value;
+  libSel.value = "";
+  if (f) tabs.openLib(f);
+};
+const newSel = $<HTMLSelectElement>("tab-new");
+newSel.onchange = () => {
+  const k = newSel.value as TabKind | "";
+  newSel.value = "";
+  if (k) tabs.newTab(k);
+};
+
+// ---- Exportar TAP (E1): sólo construye, no necesita el núcleo ----
 $("asm-export-tap").onclick = () => {
-  const r = exportSourceTap(editor.source(), "programa");
-  editor.showErrors(r.asm.errors);
+  const target = runTarget();
+  if (!target) return;
+  tabs.model.setMain(target.id);
+  const r = buildTapFor(tabs.model, target);
+  if (r.build.kind === "c" && r.build.ok) tabs.setGenerated(r.build.source);
+  tabs.showDiags(r.diags);
+  tabs.renderBar();
   showLog(r.messages);
-  if (r.tap) downloadBytes(r.tap, stampedName("programa", "tap", new Date()));
+  const base = target.name.replace(/\.[^.]*$/, "");
+  if (r.exp?.tap) downloadBytes(r.exp.tap, stampedName(base, "tap", new Date()));
 };
 
 async function boot(): Promise<void> {
@@ -229,32 +290,38 @@ async function boot(): Promise<void> {
   // ---- Ensamblar y ejecutar (I1). En pausa o parado en un breakpoint, se inyecta igual
   // y el bucle se reanuda: "ejecutar" significa correr. ----
   const runBtn = $<HTMLButtonElement>("asm-run");
-  // ---- Depurador (D1) ----
-  const dbgUi = mountDebugger({
-    host: $("debugger"), core, loop, view: editor.view,
-    say: (text) => showLog([{ severity: "info", text }]),
-  });
+  // ---- Depurador (D1 sobre pestañas, U1) ----
+  const dbg = mountTabsDebugger({ host: $("debugger"), core, loop, tabs, say });
+  dbgUi = dbg;
+  /** Construye la pestaña que toca y la inyecta; null si no se pudo. */
+  const build = () => {
+    const target = runTarget();
+    if (!target) return null;
+    tabs.model.setMain(target.id);
+    const r = buildAndRun(core, tabs.model, target);
+    if (r.build.kind === "c" && r.build.ok) tabs.setGenerated(r.build.source);
+    tabs.showDiags(r.diags);
+    tabs.renderBar();
+    showLog(r.messages);
+    if (r.report && r.fin) dbg.programLoaded(r.report.asm, r.fin.srcMap, r.ok);
+    if (!r.ok) return null;
+    display.draw();
+    return r;
+  };
   const debugBtn = $<HTMLButtonElement>("asm-debug");
   debugBtn.onclick = () => {
-    const r = assembleAndRun(core, editor.source());
-    editor.showErrors(r.asm.errors);
-    showLog(r.messages);
-    dbgUi.programLoaded(r.asm, r.ok);
-    if (!r.ok) return;
-    display.draw();
-    dbgUi.stopHere();
+    const r = build();
+    if (!r) return;
+    // Un programa C para en main (el crt0 no tiene líneas C); uno en ensamblador, en la entrada.
+    const main = r.build.kind === "c" ? r.report!.asm.symbols.get("_main") : undefined;
+    if (main !== undefined) dbg.runTo(main);
+    else dbg.stopHere();
   };
   debugBtn.disabled = false;
   runProgram = () => {
-    const r = assembleAndRun(core, editor.source());
-    editor.showErrors(r.asm.errors);
-    showLog(r.messages);
-    dbgUi.programLoaded(r.asm, r.ok);
-    if (!r.ok) return;
-    display.draw();
-    loop.setPaused(false);
+    if (build()) loop.setPaused(false);
   };
-  runBtn.onclick = () => { runProgram?.(); editor.view.focus(); };
+  runBtn.onclick = () => { runProgram?.(); tabs.view.focus(); };
   runBtn.disabled = false;
 
   // ---- Pestaña oculta: pausa ----

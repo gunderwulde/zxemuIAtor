@@ -15,6 +15,7 @@
 // así se sale de la dirección actual aunque se haya llegado a ella por un paso.
 import { disassemble, type DisasmLine } from "../../disasm";
 import { Emitter, type LoopEvents } from "../../emu/loop";
+import { TSTATES_PER_FRAME } from "../../emu/core";
 import type { Reg16, Reg8, RegsSnapshot } from "../../emu/regs";
 import type { AsmLineInfo } from "../../asm";
 
@@ -159,6 +160,27 @@ export class Debugger {
     this.sync();
     this.core.x.zx_step();
     this.events.emit("change", undefined);
+  }
+
+  /**
+   * U1 (paso por línea C): instrucciones con zx_step hasta que `stop()` se cumpla, se
+   * llegue a un breakpoint o pasen `budget` T. Al menos una. Devuelve si paró por
+   * `stop` o por un breakpoint (false = se agotó el presupuesto).
+   */
+  stepUntil(stop: () => boolean, budget: number): boolean {
+    this.loop.setPaused(true);
+    this.temp = null;
+    this.sync();
+    const x = this.core.x;
+    const now = () => x.zx_frame_count() * TSTATES_PER_FRAME + x.zx_tstate();
+    const end = now() + budget;
+    let hit = false;
+    do {
+      x.zx_step();
+      if (stop() || this.hasBp(this.pc)) { hit = true; break; }
+    } while (now() < end);
+    this.events.emit("change", undefined);
+    return hit;
   }
 
   /** Reanuda el bucle; la instrucción actual se ejecuta aunque tenga breakpoint. */

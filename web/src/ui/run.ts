@@ -186,10 +186,11 @@ export function inject(core: RunCore, segments: readonly AsmSegment[], entry: nu
   core.x.zx_set_pc(entry & 0xffff);
 }
 
-function asmMessages(errors: readonly AsmError[]): RunMessage[] {
+/** `label`: nombre del fuente principal en los mensajes (U1: pestañas); los INCLUDE llevan el suyo. */
+export function asmMessages(errors: readonly AsmError[], label?: string): RunMessage[] {
   return errors.map((e) => ({
     severity: e.severity,
-    text: `${e.file ? e.file + ":" : ""}${e.line}:${e.col}: ${e.severity === "error" ? "error" : "aviso"}: ${e.msg}`,
+    text: `${(e.file ?? label) ? (e.file ?? label) + ":" : ""}${e.line}:${e.col}: ${e.severity === "error" ? "error" : "aviso"}: ${e.msg}`,
   }));
 }
 
@@ -199,9 +200,9 @@ function asmMessages(errors: readonly AsmError[]): RunMessage[] {
  * espera a que la ROM arranque; el informe lo dice (`reset`). Pausa: esta función no
  * sabe nada del bucle; la UI reanuda después ("ejecutar" significa correr).
  */
-export function assembleAndRun(core: RunCore, source: string, opts: AsmOptions = {}): RunReport {
+export function assembleAndRun(core: RunCore, source: string, opts: AsmOptions = {}, label?: string): RunReport {
   const asm = assemble(source, opts);
-  const messages = asmMessages(asm.errors);
+  const messages = asmMessages(asm.errors, label);
   const nErr = asm.errors.filter((e) => e.severity === "error").length;
   const nWarn = asm.errors.length - nErr;
   if (nErr > 0) {

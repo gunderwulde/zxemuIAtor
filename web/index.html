@@ -9,15 +9,25 @@
   </head>
   <body>
     <main class="app" id="app">
-      <section class="ide" id="ide" aria-label="Ensamblador Z80">
+      <section class="ide" id="ide" aria-label="Editor: ensamblador Z80 y C">
         <header class="bar">
-          <strong class="title">Ensamblador Z80</strong>
+          <strong class="title">Z80 · C</strong>
           <span class="spacer"></span>
-          <select id="asm-example" aria-label="Cargar un ejemplo" title="Cargar un ejemplo (Ctrl+Z deshace)"></select>
-          <button id="asm-run" type="button" disabled title="Ensamblar y ejecutar (Ctrl+Enter)">Ensamblar y ejecutar</button>
-          <button id="asm-debug" type="button" disabled title="Ensamblar, inyectar y parar en la entrada con el depurador abierto (F7 paso, F8 por encima, F5 continuar, F9 breakpoint)">Depurar</button>
-          <button id="asm-export-tap" type="button" title="Ensamblar y descargar un .tap con cargador BASIC (LOAD &quot;&quot;)">Exportar TAP</button>
+          <select id="asm-example" aria-label="Abrir un ejemplo" title="Abrir un ejemplo en una pestaña nueva (o en la activa si está vacía y es del mismo lenguaje)"></select>
+          <select id="lib-view" aria-label="Ver la librería de C" title="Ver un fichero de la librería de C en una pestaña de sólo lectura"></select>
+          <button id="asm-run" type="button" disabled title="Ejecutar (Ctrl+Enter): la pestaña activa si es un .asm o un .c con main; si no, la principal (▶). Los .c se compilan y se ensamblan">Ejecutar</button>
+          <button id="asm-debug" type="button" disabled title="Construir, inyectar y parar con el depurador abierto: en la entrada (.asm) o en main (.c). F7 paso, F8 por encima, F6 paso C, F5 continuar, F9 breakpoint">Depurar</button>
+          <button id="asm-export-tap" type="button" title="Construir y descargar un .tap con cargador BASIC (LOAD &quot;&quot;)">Exportar TAP</button>
         </header>
+        <div class="tabbar">
+          <div id="tabs" class="tabs" aria-label="Ficheros"></div>
+          <select id="tab-new" aria-label="Nueva pestaña" title="Nueva pestaña">
+            <option value="">＋</option>
+            <option value="asm">Nuevo .asm</option>
+            <option value="c">Nuevo .c</option>
+            <option value="h">Nuevo .h</option>
+          </select>
+        </div>
         <div id="editor" class="editor-host"></div>
         <!-- Fase 2 (D1): registros, desensamblado, memoria y breakpoints. -->
         <div id="debugger" class="debugger-host" hidden></div>
