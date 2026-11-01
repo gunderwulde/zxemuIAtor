@@ -239,6 +239,86 @@ fichero, botón "Ensamblar" que de momento sólo muestra errores).
 
 ---
 
+## Fase 2C — C para Z80 (paralela; pedida por el usuario)
+
+Compilador propio de C a Z80 en TypeScript puro (sin DOM, sin dependencias, determinista),
+que genera **fuente de ensamblador** para nuestro ensamblador (A1). Así reutiliza
+ensamblado, inyección (I1), depurador (D1) y exportación (E1) sin tocarlos. Descartado
+portar SDCC (Emscripten, binario de MB, GPL, difícil de mapear al depurador).
+
+**Subconjunto "C práctico" (v1):** `char`/`int`/`short` con y sin signo (8 y 16 bits),
+`unsigned` por defecto en `char`, punteros, arrays (también multidimensionales), `struct`,
+`typedef`, `enum`, `const`, `static`, globales con inicializador, funciones con recursión,
+`if/else/while/do/for/switch/break/continue/return/goto`, todos los operadores (incluidos
+`?:`, compuestos, `,`, `sizeof`, casts), literales de cadena y carácter, preprocesador
+simple (`#include` de la librería y de pestañas, `#define` sin parámetros, `#if/#ifdef`),
+ensamblador en línea (`__asm ... __endasm;`). **Fuera de v1:** `float`, `long`, `union`,
+punteros a función, varargs de usuario, bitfields, VLA.
+
+**ABI (fijada por K1 antes de que empiece L1, en `docs/c-abi.md`):** convención de
+llamada (argumentos en pila de derecha a izquierda, retorno en L/HL, IX como marco),
+registros preservados, layout de structs, nombres de símbolos (`_nombre`), arranque
+(`crt0`: pila, BSS a cero, `call _main`, `ret` a BASIC), secciones (código, datos, BSS).
+
+### K1 — Compilador de C a Z80
+- **Posee:** `web/src/cc/**`, `tests/cc/**`, `docs/c-abi.md`
+- **Depende de:** A1 (sintaxis que acepta el ensamblador)
+- **Trabajo:** preprocesador → lexer → parser (AST con posiciones) → comprobación de
+  tipos → generación de código Z80 directa sobre el AST (pila + acumulador HL/A, sin
+  optimizador general), con peephole sencillo medido. Errores y avisos con línea/col
+  como el ensamblador. Emite `lineMap` C→ensamblador para que el depurador marque la
+  línea C. Multiplicación/división/desplazamientos en rutinas de runtime (`crt`).
+  API: `compile(files: Map<nombre, fuente>, opts) → { asm, errors, cLineMap }`.
+- **Aceptación:** suite de programas C con salida esperada escrita a mano, ejecutados en
+  el núcleo real (core-probe) — aritmética con y sin signo en los límites, punteros,
+  arrays, structs, recursión (fib, hanoi), switch, cadenas; tests de errores (línea
+  correcta); oráculo adicional: resultados comparados con el mismo programa compilado
+  con `cc` nativo del host cuando sea portable (tipos de 16 bits forzados con
+  `int16_t`). Compilar 2 000 líneas < 200 ms.
+
+### L1 — Librería básica (`zx.h` de usuario)
+- **Posee:** `web/src/clib/**` (cabeceras `.h` y fuentes en C o ensamblador), `tests/clib/**`
+- **Depende de:** ABI de K1 (`docs/c-abi.md`); puede empezar con rutinas en ensamblador
+  en paralelo a K1.
+- **Trabajo:**
+  - Pantalla y texto: `cls`, `at(x,y)`, `putchar/print/printf` simple (`%d %u %x %s %c`
+    implementado en la librería), `ink/paper/bright/flash/border`, `attr`, `plot/unplot/
+    point`, `line`, direcciones de pantalla (`zx_pxaddr`, `zx_attraddr`).
+  - Teclado y joystick: `in_key()` (ASCII), `key_pressed(fila, bit)`, `wait_key()`,
+    Kempston, Sinclair, cursores.
+  - Sonido: `beep(hz, ms)` (rutina propia o BEEPER de la ROM), efectos sencillos.
+  - Sprites y utilidades: sprites 8×8 y 16×16 con XOR/OR/máscara, `memcpy/memset/
+    memcmp/strlen/strcpy/strcmp`, `rand/srand`, `wait_frame()` (HALT), instalación de
+    rutina de interrupción IM2.
+  - **Serie de ejemplos C** (`web/src/clib/examples/*.c`, comentados en español, de menos
+    a más): 1 hola mundo con colores; 2 bucles y aritmética (tabla de multiplicar);
+    3 teclado (eco de teclas, mover un carácter); 4 gráficos (plot/line, patrón);
+    5 atributos animados (arco iris como el ejemplo ASM por defecto); 6 sonido (escala
+    musical con beep); 7 sprite 16×16 que se mueve con QAOP/joystick sin parpadeo
+    (wait_frame); 8 structs y arrays (lista de enemigos); 9 recursión (Hanoi o
+    flood-fill); 10 mini-juego completo (esquivar/recoger con marcador). El de por
+    defecto en la pestaña C es visual.
+- **Aceptación:** cada función con un test en el núcleo real cuyo resultado se verifica
+  por pantalla/atributos/borde/beeper log con valores escritos a mano; **cada ejemplo**
+  compila sin errores ni avisos y tiene un test en el núcleo real que verifica su efecto
+  visible (texto por OCR, atributos, borde, beeper log o movimiento tras teclas).
+
+### U1 — Pestañas en el panel del editor y C en la UI
+- **Posee:** `web/src/ui/tabs/**`, `tests/ui/tabs/**`; ediciones pequeñas en
+  `web/src/ui/editor/**`, `web/src/ui/run.ts`, `web/src/main.ts`, `index.html`, `style.css`
+- **Depende de:** I1, D1; K1 para el modo C (puede empezar con pestañas de ensamblador)
+- **Trabajo:** barra de pestañas (crear, renombrar, cerrar, reordenar), cada pestaña es un
+  fichero `.asm`, `.c` o `.h` con su lenguaje (resaltado C con `@codemirror/lang-cpp` o
+  StreamLanguage propio, a justificar), guardado de todas en localStorage, pestaña
+  principal marcada para "ejecutar". Ctrl+Enter compila C → ensamblador → ensambla →
+  inyecta; errores en la pestaña y línea correctas; ver el ensamblador generado en una
+  pestaña de sólo lectura. Depurador sobre C: línea C actual y breakpoints en el margen
+  de las pestañas C vía `cLineMap`. Exportar TAP funciona igual. Ejemplos C precargados.
+- **Aceptación:** tests sin DOM de la lógica de pestañas y del flujo compilar/ejecutar
+  contra el núcleo real; ejemplo C por defecto visual.
+
+---
+
 ## Fase 3 — Cierre (secuencial)
 
 1. Revisión global Carmack/Abrash por un agente que no haya escrito el núcleo,
@@ -264,6 +344,9 @@ fichero, botón "Ensamblar" que de momento sólo muestra errores).
 | E1 Exportar | 2 | A1, M3 | — |
 | C2 Exactitud | 2 | integración | fase 3 |
 | P1 Rendimiento | 2 | integración | fase 3 |
+| K1 Compilador C | 2C | A1 | L1 (ABI), U1 (modo C) |
+| L1 Librería C | 2C | ABI de K1 | ejemplos C de U1 |
+| U1 Pestañas + C en UI | 2C | I1, D1, K1 | fase 3 |
 
 Máximo de agentes simultáneos: **7** en la fase 1 y **5** en la fase 2, más un revisor
 por tarea al cerrar.
@@ -276,5 +359,7 @@ por tarea al cerrar.
   el vídeo muestra el último frame completo.
 - **SharedArrayBuffer** requiere cabeceras COOP/COEP; Vite las sirve en dev; si el
   hosting final no puede, se usa `postMessage` (M2).
+- **Compilador C propio**: el código será más lento y grande que el de SDCC/z88dk; se
+  acepta a cambio de integración total con el depurador. Optimizar sólo con números.
 - **Inyección de código** sin un punto seguro puede romper la ROM: por eso I1 espera al
   bucle de teclado.

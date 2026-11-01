@@ -1,7 +1,7 @@
 // Bench del núcleo: arranca la ROM y ejecuta N frames; imprime la mediana de varias
 // rondas en ms/frame y el múltiplo de tiempo real. P1 (PLAN.md) lo amplía.
 //
-// Uso: node tools/bench.mjs [frames=3000] [rondas=5]
+// Uso: node tools/bench.mjs [frames=3000] [rondas=5]   (ZX_BUILD_DIR elige el core.wasm)
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,7 @@ const frames = Number(process.argv[2] ?? 3000);
 const rounds = Number(process.argv[3] ?? 5);
 const FRAME_MS = (1000 * 69888) / 3_500_000;
 
-const wasm = readFileSync(join(root, "build", "wasm", "core.wasm"));
+const wasm = readFileSync(join(root, process.env.ZX_BUILD_DIR ?? join("build", "wasm"), "core.wasm"));
 const rom = readFileSync(join(root, "rom", "48.rom"));
 const { instance } = await WebAssembly.instantiate(wasm, {});
 const x = instance.exports;

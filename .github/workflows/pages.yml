@@ -1,0 +1,63 @@
+# Compila el núcleo (clang → wasm32), pasa los tests y publica la web en GitHub Pages.
+# GitHub Pages no permite cabeceras COOP/COEP: el audio usa el transporte por
+# postMessage (web/src/emu/audio.ts) en vez de SharedArrayBuffer.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: LLVM (clang + wasm-ld)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld
+          clang --version
+          wasm-ld --version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build:core
+
+      - name: Suites externas
+        run: npm run fetch
+
+      - run: npm test
+
+      - name: Build web
+        run: npm run build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

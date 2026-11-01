@@ -285,7 +285,8 @@ no se reinicia con escrituras de atributo.
 - Resampler: onda cuadrada de periodo P T-states → frecuencia fundamental
   3 500 000/P ±0,5 % (FFT), sin DC tras el filtro, sin clics en las fronteras de frame
   (continuidad de la integral entre frames).
-- Niveles EAR/MIC: las 4 combinaciones producen niveles ordenados según docs §12.
+- Niveles EAR/MIC: las 4 combinaciones dan los niveles de Fuse 1.6 de docs §12
+  (0/0 = 0/1 = 0 < 1/1 = 50 < 1/0 = 52, normalizados por 52).
 
 ---
 

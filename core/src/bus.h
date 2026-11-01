@@ -44,8 +44,13 @@
  *   static inline uint8_t bus_in(uint16_t port);
  *   static inline void    bus_out(uint16_t port, uint8_t value);
  *       Ciclo de E/S completo de 4 T, incluida la contención de E/S de la ULA
- *       (docs/zx48-hardware.md §5). Registro, convención FUSE (sin contención):
- *           t += 1; "t PR port v" (o PW); "t PC port"; t += 3
+ *       (docs/zx48-hardware.md §5). Registro de eventos (convención de coretest.c
+ *       de Fuse; "PC" marca cada punto en que la ULA puede contender):
+ *           si byte alto en 0x40-0x7F: "t PC port"
+ *           t += 1; "t PR port v" (o PW)
+ *           si bit 0 == 0:                 "t PC port"; t += 3
+ *           si bit 0 == 1 y alto 0x40-0x7F: 3 × ("t PC port"; t += 1)
+ *           en otro caso:                  t += 3
  *
  *   static inline int bus_int_line(void);
  *       1 si /INT está activa en este instante (la CPU lo consulta entre instrucciones).

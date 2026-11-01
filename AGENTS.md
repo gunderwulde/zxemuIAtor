@@ -11,12 +11,15 @@ en qué orden está en [PLAN.md](PLAN.md). La referencia de hardware es
 - Fidelidad: contención por ciclo de bus en memoria e I/O, render de pantalla y borde al
   T-state (multicolor y borde funcionan), flags no documentados, MEMPTR, Q, bus flotante.
   **Snow fuera de alcance.**
-- Formatos: TAP (carga rápida por trampa ROM), SNA, Z80 v1–v3 (48K). Sin TZX ni carga
-  por pulsos.
+- Formatos: TAP (carga rápida por trampa ROM), SNA, Z80 v1–v3 (48K). Sin TZX; carga por
+  pulsos sólo como respaldo para cargadores propios (TAP).
 - Núcleo: **C99 → wasm32 con clang**, sin libc, sin Emscripten.
 - Frontend: **Vite + TypeScript**, CodeMirror 6, AudioWorklet.
 - IDE: ensamblar e inyectar en RAM y saltar, depurador (registros, paso, breakpoints,
   desensamblado, memoria), resaltado de sintaxis, exportar TAP (con cargador BASIC) y SNA.
+  Pestañas en el editor y **C para Z80**: compilador propio en TypeScript (subconjunto
+  "C práctico", sin float/long) que genera ensamblador para el ensamblador propio, más
+  una librería básica y ejemplos (PLAN.md, fase 2C). Sin SDCC/z88dk.
 - ROM: `48.rom` original (permiso de Amstrad para emuladores), incluida en el repo.
 
 ## 2. Estructura del repositorio
@@ -42,6 +45,8 @@ web/                   App Vite
   src/emu/             Envoltorio wasm, bucle, vídeo, audio, teclado
   src/asm/             Ensamblador Z80 (TS puro, sin DOM)
   src/disasm/          Desensamblador (TS puro, comparte tabla con asm)
+  src/cc/              Compilador C → ensamblador Z80 (TS puro, sin DOM)
+  src/clib/            Librería C de usuario (.h, .c, .asm) y ejemplos C
   src/export/          Generación TAP/SNA y cargador BASIC
   src/ui/              Editor, depurador, visor de memoria, layout
 tests/                 Vitest: core/, asm/, disasm/, export/

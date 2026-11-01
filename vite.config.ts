@@ -8,6 +8,8 @@ const isolation = {
 
 export default defineConfig({
   root: "web",
+  // GitHub Pages sirve el proyecto en /<repo>/; el workflow fija VITE_BASE.
+  base: process.env.VITE_BASE ?? "/",
   publicDir: "public",
   assetsInclude: ["**/*.rom"],
   server: { headers: isolation, fs: { allow: [".."] } },

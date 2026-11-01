@@ -31,14 +31,35 @@ Fuentes primarias (por orden de autoridad):
 ## 2. Interrupción
 
 - La ULA baja /INT al inicio del frame (T=0) durante **32 T-states** (48K). Si la CPU no
-  la acepta en esa ventana, se pierde.
+  la acepta en esa ventana, se pierde. Convención exacta (Fuse 1.6 `z80/z80.c`
+  `z80_interrupt`, `interrupt_length` = 32 de libspectrum para el 48K): se acepta en un
+  límite de instrucción con T < 32 (31 sí, 32 no), si IFF1 = 1 y la instrucción anterior
+  no es EI. Fijado por ULA-10.
 - Bus de datos durante INTA: 0xFF (IM2 lee el vector en `(I*256 + 0xFF)`).
 - Aceptación: IM0/IM1 → 13 T (IM1 = RST 38h); IM2 → 19 T. Incrementa R.
 - EI: la interrupción no se acepta hasta **después** de la instrucción siguiente a EI.
-- Cadenas de prefijos DD/FD: no se acepta INT entre prefijo e instrucción.
+- Cadenas de prefijos DD/FD: no se acepta INT entre prefijo e instrucción (Sean Young,
+  *The Undocumented Z80 Documented*: un DD/FD seguido de otro prefijo actúa como un NOP
+  de 4 T y la INT sólo se acepta tras la instrucción completa). Modelo del núcleo: como
+  en Fuse, cada prefijo sin efecto seguido de otro DD/FD termina el `z80_step` (64 KB
+  de DD no son un único paso infinito); el prefijo pendiente queda en `ei_delay` =
+  0xDD/0xFD, que además impide aceptar la INT, y el paso siguiente despacha ese
+  prefijo sin repetir su M1. `zx_set_pc` y las cargas de snapshot lo descartan; la
+  trampa de cinta no actúa con un prefijo pendiente. Fijado por CPU-07
+  (`tests/core/cpu/targeted.test.ts`).
 - `LD A,I` / `LD A,R`: P/V = IFF2. Bug NMOS: si se acepta una INT justo tras ellas, P/V queda a 0.
-- HALT: repite ciclos M1 sobre la dirección siguiente (PC no avanza) hasta INT/NMI; cada
-  ciclo es contendido si PC está en 0x4000–0x7FFF.
+- HALT: repite ciclos M1 (4 T, R+1) hasta INT/NMI; cada ciclo es contendido si la
+  dirección está en 0x4000–0x7FFF. **Qué dirección**: en hardware el PC ya ha avanzado
+  y los M1 repetidos ponen HALT+1 en el bus (SingleStepTests `76`: final.pc = HALT+1).
+  El núcleo sigue la convención de Fuse, exigida por `tests.expected` (caso `76`): el
+  PC se queda en el propio HALT y los M1 leen esa dirección; al aceptar la INT/NMI el
+  PC avanza antes de apilarse, así que la dirección apilada es la misma (HALT+1). La
+  única diferencia observable es la contención con el HALT en 0x3FFF (el hardware
+  contendería sobre 0x4000 y aquí no) o en 0x7FFF (al revés). Se acepta.
+- Breakpoints (convención del depurador, no hardware): un breakpoint en un HALT para al
+  llegar a él, no en cada M1 mientras espera la INT (`zx48.c` `run_one`:
+  `bp_skip = halted`). Sin breakpoints `zx_run_frame` usa un bucle que no los
+  comprueba. Fijado por `tests/debugger/core-bp.test.ts`.
 
 ## 3. Memoria
 
@@ -121,10 +142,24 @@ no una tabla de teclas).
 ## 7. Vídeo y borde
 
 - El byte de pantalla 16384 se dibuja 14 336 T después de /INT.
-- Un `OUT (0xFE)` que **termina** en T 14339–14342 cambia el borde en la posición del
-  byte 16384. A partir de ahí: 4 T = 8 píxeles, 224 T = 1 línea.
+- Un `OUT (0xFE)` cuyo **dato de E/S** (instante en que la ULA ve el valor: inicio del
+  ciclo de E/S + 1 T + contención "early", §5) cae en T ≤ 14 339 ya se ve en el grupo
+  de 8 píxeles del byte 16384 (T<sub>g</sub> = 14 336 y regla t ≤ T<sub>g</sub> + 3,
+  abajo); si cae en 14 340–14 343, desde el grupo siguiente. En un `OUT (n),A` sin
+  contención el dato va 3 T antes del final de la instrucción. A partir de ahí: 4 T =
+  8 píxeles, 224 T = 1 línea.
 - El borde se muestrea en unidades de 8 píxeles (4 T) → no hay cambios de borde
-  más finos que eso en 48K. `[VERIFICAR]` alineación exacta con Fuse.
+  más finos que eso en 48K. Alineación (resuelto con Fuse 1.6: `display.c`
+  `display_write_if_dirty`/`display_dirty_*`, `display_border.c`, `peripherals/ula.c`
+  `ula_write`): el grupo de 8 px (gx 0..43, fy 0..295 del framebuffer 352×296) tiene
+  T<sub>g</sub> = 14 336 + (fy − 48)·224 + (gx − 6)·4 y muestra todo evento (escritura en
+  pantalla o en el borde) con t ≤ T<sub>g</sub> + 3. El t de un `OUT` es el del dato de
+  E/S = inicio del ciclo de E/S + 1 + retardo de contención "early" (§5); con
+  `OUT (n),A` sin contención, fin − 3. El t de una
+  escritura en memoria es el final de su ciclo de bus (Fuse avanza `tstates` en
+  `contend_write` antes de `writebyte`). Fuse sólo define 240 líneas visibles; aquí la
+  fórmula se extrapola linealmente a las 296. Fijado por `tests/ref/video.ts` y
+  ULA-30…34 (`tests/core/ula/`).
 - Área visible que emulamos: 48 px de borde izq/dcho, 48 líneas superiores, 56
   inferiores → framebuffer **352 × 296**.
 - La ULA lee bitmap y atributo *en el momento* en que se dibujan: los efectos multicolor
@@ -137,8 +172,12 @@ no una tabla de teclas).
 Al leer un puerto que nadie decodifica (bit 0 = 1, sin periféricos) se devuelve lo que
 la ULA tiene en el bus: durante la ventana de pantalla, en cada grupo de 8 T de una
 línea, la ULA lee bitmap, atributo, bitmap+1, atributo+1 y luego 4 T de 0xFF; fuera de
-pantalla siempre 0xFF. Los T exactos de cada lectura: `[VERIFICAR]` con Fuse
-(`spectrum_unattached_port`); se fija con los tests de floating bus de la comunidad.
+pantalla siempre 0xFF. T exactos (resuelto con Fuse 1.6 `spectrum.c`
+`spectrum_unattached_port`, muestreado en el T del dato de E/S de §5): el primer byte
+(bitmap de 0x4000) se ve en T 14 338; en cada línea n (0..191) y grupo de 8 T que
+empieza en 14 336 + 224n + 8x (x = 0..15), los offsets 2, 3, 4 y 5 devuelven bitmap,
+atributo, bitmap+1 y atributo+1 de la columna 2x, y los offsets 6, 7, 0 y 1 devuelven
+0xFF. Fijado por `tests/ref/floatingbus.ts` y ULA-23.
 
 Snow (I en 0x40–0x7F): fuera de alcance (decisión del usuario).
 
@@ -148,7 +187,13 @@ Snow (I en 0x40–0x7F): fuera de alcance (decisión del usuario).
   instrucción (BIT n,(HL) usa MEMPTR alto; bloque LDI/CPI/INI/OUTI tienen reglas propias).
 - **MEMPTR (WZ)**: registro interno, visible vía `BIT n,(HL)`. Reglas completas en la fuente 4.
 - **Q**: SCF/CCF calculan XF/YF como `((Q ^ F) | A) & 0x28`, donde Q = F si la
-  instrucción anterior modificó flags, si no 0 (variante Zilog NMOS).
+  instrucción anterior modificó flags, si no 0 (variante Zilog NMOS). POP AF y
+  EX AF,AF' cargan F sin la ALU y dejan Q = 0 (SingleStepTests `f1` y `08`: final.q = 0
+  en los 1000 casos de cada uno, la mitad con q inicial ≠ 0). Un prefijo DD/FD también
+  deja Q = 0 (SingleStepTests `DD 37`/`FD 3F`). Tras aceptar una INT o NMI el núcleo
+  pone Q = 0 `[VERIFICAR]`: ninguna fuente lo fija (SingleStepTests no prueba
+  interrupciones; Fuse y Rak no lo ejercitan). Sólo afecta a un SCF/CCF que sea la
+  primera instrucción de la ISR.
 - R: los 7 bits bajos se incrementan en cada M1 (prefijos incluidos); bit 7 se conserva.
 - `OUT (C),0` (ED 71) escribe 0 en NMOS. `IN F,(C)` (ED 70) sólo afecta flags.
 - DDCB/FDCB: la versión no documentada escribe el resultado en un registro además de en memoria.
@@ -162,10 +207,57 @@ TAP: secuencia de bloques `[len16 LE][flag][datos…][xor]`, donde `len` incluye
 checksum. Flag 0x00 = cabecera (17 bytes: tipo, nombre[10], longitud, param1, param2),
 0xFF = datos.
 
-Carga rápida: trampa en la rutina ROM **LD-BYTES (0x0556)**. Entrada: IX = destino,
+Carga rápida: trampa en la rutina ROM **LD-BYTES (0x0556)** y en **LD-BREAK
+(0x056B)**, el `RET NZ` al que llegan también los cargadores que entran por 0x0562 con
+su propio preámbulo (Fuse 1.6 atrapa sólo en 0x056B, `tape_traps.c`; en 0x056B con
+Z = 0 la ROM está saliendo por BREAK y no se atrapa). Entrada: IX = destino,
 DE = longitud, A = flag esperado, CF = 1 cargar / 0 verificar. Salida: CF = 1 si OK.
-Se copia el bloque, se ajustan IX/DE/AF/flags como lo dejaría la ROM y se ejecuta un
-RET. `[VERIFICAR]` estado exacto de salida con `tape.c` de Fuse.
+
+- Sólo actúa en un límite de bloque (cinta parada, en el tono guía o en la pausa del
+  anterior), sin prefijo DD/FD pendiente y sin INT pendiente (IFF1 = 1, sin EI previo
+  y T < 32): con INT la CPU la acepta antes, como el hardware, y la ISR vuelve a 0x0556
+  con EI retrasando la siguiente (`trap.test.ts`, "INT pendiente al entrar").
+- **Estado de salida: el de la ROM, no el de Fuse.** Se modela el bucle 0x05A3–0x05E2
+  (`tape.c` `load_block`) y se ha contrastado registro a registro con la propia ROM
+  leyendo los pulsos del reproductor (`trap.test.ts`, "ROM real"). Difiere de lo que
+  documenta Fuse (`tape_trap_load_block`: C = 1, L = último dato, AF' = 0145, B intacto
+  al fallar el flag). Resumen: en el final normal A/F = `LD A,H; CP 1` con H = paridad
+  (CF = 1 éxito) y B = 0xB0; bloque más corto que DE → B = 0, AF = 0050, L = 1; RET NZ
+  de LD-FLAG/LD-VERIFY → AF = el del bucle y AF' = D|E con flags de OR; DE e IX avanzan
+  por byte. La salida es **siempre** por el RET de 0x05E2 (todas las salidas de
+  LD-BYTES pasan por él), que vuelve a SA/LD-RET (0x053F) apilado por el preámbulo.
+- C tras la sincronía: LD-EDGE complementa C en cada flanco y su bit 5 sigue a EAR;
+  con el reproductor de `tape.c` el nivel al empezar los datos es 0 y C = 0xDE.
+  `[VERIFICAR]` la polaridad inicial: no está en el TAP; con una cinta real podría ser
+  la contraria (C = 0x21).
+
+Reproducción por pulsos (respaldo para cargadores propios). Tiempos de la ROM (los que
+Fuse reconoce como "ROM pilot", `pzx_has_rom_pilot`): guía de 2168 T × 8063 pulsos
+(cabecera, flag < 0x80) o × 3223 (datos); sincronía 667 + 735 T; bit 0 = 2 × 855 T,
+bit 1 = 2 × 1710 T; pausa de 1000 ms tras cada bloque (libspectrum, bloques TAP). Cada
+límite de pulso es un flanco. La cinta se para sola al acabar la pausa de cada bloque.
+
+Arranque automático (sin fuente de hardware: en la máquina real el usuario pulsa PLAY;
+`tape.c`, constantes `AUTO_*`):
+
+1. Si la ROM lee EAR dentro de 0x0562–0x0605 (LD-BYTES/LD-EDGE), arranca ya.
+2. Fuera de la ROM, sospecha: 2 frames seguidos con ≥ 256 lecturas de un puerto par
+   con DI, cada una a ≤ 200 T de la anterior (bucle cerrado de muestreo; LD-SAMPLE de
+   la ROM muestrea cada 59 T). La cinta arranca a prueba.
+3. Prueba: un cargador sale de su bucle al ver un flanco, así que la lectura que sigue
+   a un cambio de nivel llega > 20 T más tarde que el ritmo del bucle. De los primeros
+   16 cambios, al menos la mitad deben ir así; si no, o si la guía se acaba antes, la
+   cinta se para y se rebobina al inicio del bloque (nivel a 0).
+4. Si la trampa se dispara con un bloque arrancado así y a medias, lo rebobina y lo
+   carga entero (el programa ha abandonado la lectura por pulsos).
+
+Límites conocidos: un programa con DI que lee 0xFE en bucle y cuyo ritmo cambia justo
+tras los cambios de EAR (o que alterna lecturas con periodos que difieren en más de
+20 T) pasa la prueba y la cinta avanza; si eso dura un bloque entero (guía + datos +
+pausa, ≥ 3 s) ese bloque se pierde. Un cargador que, tras un flanco, sigue muestreando
+al mismo ritmo (sin salir del bucle) no pasa la prueba y no carga por pulsos. Fijado
+por `trap.test.ts` (menú en bucle de 41 T con la cinta montada, cargador LD-BYTES
+reubicado en 0xA556, bloque abandonado a medias) y `sootland.test.ts`.
 
 ## 11. Snapshots
 
@@ -190,13 +282,33 @@ corrompe RAM útil es una limitación conocida del formato).
 off 30: 23 = v2, 54/55 = v3) y bloques de memoria por página (48K: páginas 8 → 0x4000,
 4 → 0x8000, 5 → 0xC000; longitud 0xFFFF = sin comprimir).
 
+Reglas de carga del núcleo (`snap.c`, fijadas por `tests/core/snap/snap.test.ts`):
+- `len` > `ZX_IO_BUFFER_SIZE` → `ZX_ERR_SIZE` (el fichero sólo puede estar en el buffer).
+- v1 comprimido: tras los datos no puede ir nada o exactamente `00 ED ED 00`.
+- v2/v3: cada página 48K comprimida debe expandirse a 16 384 bytes exactos consumiendo
+  todo su bloque; un bloque de longitud 0 no cuenta como página. Páginas ajenas (ROM,
+  IF1, MGT) se ignoran; repetidas o ausentes → `ZX_ERR_FORMAT`.
+- Las cargas no tocan `zx.t` (posición en el frame): SNA no la guarda y la de Z80 v3
+  se ignora; moverla descuadraría el render perezoso.
+- `zx_load_z80` fija el Issue por el bit 2 del byte 29 (emulación Issue 2), como Fuse.
+- SNA y Z80 dejan a reposo lo que no guardan: MEMPTR = 0, Q = 0, halted = 0,
+  ei_delay = 0 (EI o prefijo pendiente), ld_air = 0; el PC se fija con `zx_set_pc`.
+
 ## 12. Audio (beeper)
 
-- Nivel de salida en función de EAR (bit 4) y MIC (bit 3) del último OUT 0xFE. EAR
-  domina; MIC añade un nivel pequeño. Niveles relativos `[VERIFICAR]` con Fuse.
+- Nivel de salida en función de EAR (bit 4) y MIC (bit 3) del último OUT 0xFE. Niveles
+  de Fuse 1.6.0 (`peripherals/ula.c` `ula_write` → `sound_beeper`; `sound.c`
+  `beeper_ampl[]` con AMPL_BEEPER = 50·256 y AMPL_TAPE = 2·256; en Fuse MIC suma cuando
+  el bit 3 vale 0 y, sin cinta sonando, MIC solo se fuerza a silencio):
+  EAR/MIC = 0/0 → 0, 0/1 → 0, 1/0 → 52, 1/1 → 50, normalizados por 52 (`audio.c`).
+- `[VERIFICAR]` MIC: la tabla de tensiones medidas en la salida (48K Technical
+  Reference, puerto 0xFE: EAR/MIC 0/0 ≈ 0,39 V, 0/1 ≈ 0,73 V, 1/0 ≈ 3,66 V,
+  1/1 ≈ 3,79 V) dice que MIC a 1 sube el nivel, al revés que Fuse. Se mantienen los
+  niveles de Fuse hasta contrastarlo con una medida o con `ula_filter.c` del Fuse actual.
 - El núcleo registra `(t_state, nivel)` en cada cambio. Al final del frame se integra el
-  nivel por cada periodo de muestra (filtro caja = sin aliasing grueso) y se aplica
-  bloqueo de DC + paso bajo suave (respuesta del altavoz).
+  nivel por cada periodo de muestra (filtro caja = sin aliasing grueso) y se aplican un
+  bloqueo de DC de 1 polo a 25 Hz y un paso bajo de 1 polo a 7 kHz (respuesta del
+  altavoz), con su estado arrastrado entre frames.
 - El reloj maestro de la emulación es el **audio** (50,08 Hz no coincide con 60 Hz de
   pantalla): el AudioWorklet pide muestras y el bucle produce frames para mantener el
   buffer en su nivel objetivo.

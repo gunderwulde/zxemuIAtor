@@ -46,10 +46,12 @@ void     audio_out(uint32_t t, uint8_t fe);
 void     audio_end_frame(uint32_t frame_len);
 
 /* ---- tape.c (M3) ----
- * tape_trap(): zx48.c la llama cuando PC == 0x0556 (LD-BYTES) en un límite de
- * instrucción. Devuelve 1 si ha resuelto la carga (registros y PC ya en el estado de
+ * tape_trap(): zx48.c la llama cuando PC == 0x0556 (LD-BYTES) o 0x056B (RET NZ de
+ * LD-BREAK) en un límite de instrucción, nunca con una INT o un prefijo DD/FD
+ * pendientes. Devuelve 1 si ha resuelto la carga (registros y PC ya en el estado de
  * retorno de la ROM), 0 si no hay cinta y la ROM debe seguir normalmente. */
 #define TAPE_LD_BYTES 0x0556
+#define TAPE_LD_BREAK 0x056B
 void     tape_reset(void);
 int      tape_trap(void);
 

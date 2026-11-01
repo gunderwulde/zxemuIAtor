@@ -48,7 +48,7 @@ typedef struct {
     uint8_t iff1, iff2, im;       /* 28 29 30 */
     uint8_t halted;               /* 31  1 = ejecutando HALT */
     uint8_t q;                    /* 32  F si la última instrucción modificó flags, si no 0 */
-    uint8_t ei_delay;             /* 33  1 = la última instrucción fue EI (o prefijo DD/FD): no aceptar INT */
+    uint8_t ei_delay;             /* 33  ≠0 = no aceptar INT: 1 = la última fue EI; 0xDD/0xFD = prefijo pendiente */
     uint8_t ld_air;               /* 34  1 = la última instrucción fue LD A,I / LD A,R (bug NMOS de P/V) */
     uint8_t _pad;                 /* 35 */
 } ZxRegs;                         /* 36 bytes */

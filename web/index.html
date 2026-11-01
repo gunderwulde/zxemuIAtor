@@ -3,33 +3,62 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
     <title>zxemuIAtor</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main class="app">
-      <section class="ide" aria-label="Ensamblador Z80">
+    <main class="app" id="app">
+      <section class="ide" id="ide" aria-label="Ensamblador Z80">
         <header class="bar">
-          <strong>Ensamblador Z80</strong>
+          <strong class="title">Ensamblador Z80</strong>
+          <span class="spacer"></span>
+          <select id="asm-example" aria-label="Cargar un ejemplo" title="Cargar un ejemplo (Ctrl+Z deshace)"></select>
           <button id="asm-run" type="button" disabled title="Ensamblar y ejecutar (Ctrl+Enter)">Ensamblar y ejecutar</button>
+          <button id="asm-debug" type="button" disabled title="Ensamblar, inyectar y parar en la entrada con el depurador abierto (F7 paso, F8 por encima, F5 continuar, F9 breakpoint)">Depurar</button>
+          <button id="asm-export-tap" type="button" title="Ensamblar y descargar un .tap con cargador BASIC (LOAD &quot;&quot;)">Exportar TAP</button>
         </header>
-        <textarea id="asm-source" spellcheck="false" placeholder="; Escribe aquí tu código Z80…">        ORG 32768
-start:  ld a,2
-        out (254),a
-        ret
-</textarea>
-        <pre id="asm-log" class="log"></pre>
+        <div id="editor" class="editor-host"></div>
+        <!-- Fase 2 (D1): registros, desensamblado, memoria y breakpoints. -->
+        <div id="debugger" class="debugger-host" hidden></div>
+        <pre id="asm-log" class="log" aria-live="polite"></pre>
       </section>
-      <section class="emu" aria-label="ZX Spectrum 48K">
-        <header class="bar">
-          <strong>ZX Spectrum 48K</strong>
-          <button id="emu-reset" type="button">Reset</button>
-          <button id="emu-pause" type="button">Pausa</button>
-          <span id="emu-status" class="status"></span>
+
+      <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Redimensionar paneles" tabindex="0" title="Arrastra para redimensionar (doble clic: restablecer)"></div>
+
+      <section class="emu" id="emu" aria-label="ZX Spectrum 48K">
+        <header class="bar controls">
+          <strong class="title">ZX Spectrum 48K</strong>
+          <button id="emu-reset" type="button" title="Reinicia la máquina">Reset</button>
+          <button id="emu-pause" type="button" aria-pressed="false">Pausa</button>
+          <button id="emu-open" type="button" title="Cargar TAP, SNA o Z80 (también puedes arrastrarlo sobre la pantalla)">Cargar fichero…</button>
+          <input id="emu-file" type="file" accept=".tap,.sna,.z80" hidden />
+          <button id="emu-save-sna" type="button" disabled title="Descargar el estado actual como .sna">Guardar SNA</button>
+          <label class="field" title="Comportamiento del bit 6 del puerto 0xFE">
+            <span>Issue</span>
+            <select id="emu-issue">
+              <option value="3">3</option>
+              <option value="2">2</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Escala</span>
+            <select id="emu-scale">
+              <option value="fit">Ajustar</option>
+              <option value="1">×1</option>
+              <option value="2">×2</option>
+              <option value="3">×3</option>
+            </select>
+          </label>
+          <button id="emu-mute" type="button" aria-pressed="false">Silencio</button>
+          <span id="emu-status" class="status" aria-live="off">Cargando…</span>
         </header>
-        <div class="screen-wrap">
-          <canvas id="screen" width="352" height="296" tabindex="0"></canvas>
+        <div id="screen-wrap" class="screen-wrap">
+          <canvas id="screen" width="352" height="296" tabindex="0" aria-label="Pantalla del Spectrum: haz clic para usar el teclado"></canvas>
+          <p class="kbd-hint">Haz clic en la pantalla para teclear en el Spectrum</p>
+          <div class="drop-hint" aria-hidden="true">Suelta aquí un .tap, .sna o .z80</div>
         </div>
+        <div id="emu-msg" class="msg" role="alert" hidden></div>
       </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
