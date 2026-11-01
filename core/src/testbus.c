@@ -49,22 +49,50 @@ static inline void bus_tick(uint32_t n)
     t += n;
 }
 
+/* Eventos de E/S con la convención de z80/coretest.c de Fuse (contend_port_preio /
+ * contend_port_postio), que es la que usa tests.expected. Sin contención real: sólo se
+ * registran los instantes en que la máquina de verdad la aplicaría (docs §5):
+ *   antes:   "PC port" si el byte alto está en 0x40-0x7F; t += 1
+ *   acceso:  PR/PW
+ *   después: bit 0 = 0             → "PC port"; t += 3
+ *            bit 0 = 1 y 0x40-0x7F → 3 × ("PC port"; t += 1)
+ *            bit 0 = 1, resto      → t += 3 */
+static inline void io_pre(uint16_t port)
+{
+    if ((port & 0xC000) == 0x4000)
+        log_event(ZX_EV_PC, port, 0);
+    t += 1;
+}
+
+static inline void io_post(uint16_t port)
+{
+    if (!(port & 1)) {
+        log_event(ZX_EV_PC, port, 0);
+        t += 3;
+    } else if ((port & 0xC000) == 0x4000) {
+        for (int i = 0; i < 3; i++) {
+            log_event(ZX_EV_PC, port, 0);
+            t += 1;
+        }
+    } else {
+        t += 3;
+    }
+}
+
 static inline uint8_t bus_in(uint16_t port)
 {
     uint8_t v = port_queue_pos < port_queue_len ? port_queue[port_queue_pos++] : (uint8_t)(port >> 8);
-    t += 1;
+    io_pre(port);
     log_event(ZX_EV_PR, port, v);
-    log_event(ZX_EV_PC, port, 0);
-    t += 3;
+    io_post(port);
     return v;
 }
 
 static inline void bus_out(uint16_t port, uint8_t v)
 {
-    t += 1;
+    io_pre(port);
     log_event(ZX_EV_PW, port, v);
-    log_event(ZX_EV_PC, port, 0);
-    t += 3;
+    io_post(port);
 }
 
 static inline int     bus_int_line(void) { return int_active; }
@@ -80,6 +108,7 @@ void tb_reset(void)
     int_active = 0;
     int_data = 0xFF;
     event_count = 0;
+    log_on = 1;
     port_queue_len = port_queue_pos = 0;
 }
 
