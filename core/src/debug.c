@@ -1,6 +1,8 @@
 /*
  * debug.c — breakpoints. El mapa de bits se consulta en machine.h (debug_is_bp);
- * con debug_bp_count == 0 la comprobación es un único test por instrucción.
+ * con debug_bp_count == 0 la comprobación es un único test por frame (zx_run_frame usa
+ * entonces un bucle sin breakpoints). Un breakpoint en un HALT para al llegar a él, no
+ * en cada M1 mientras espera la INT (zx48.c run_one).
  */
 #include "machine.h"
 
