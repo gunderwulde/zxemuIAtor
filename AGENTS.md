@@ -22,18 +22,22 @@ en qué orden está en [PLAN.md](PLAN.md). La referencia de hardware es
 ## 2. Estructura del repositorio
 
 ```
-core/                  Núcleo C → core.wasm
+core/                  Núcleo C → wasm
   include/zx.h         ABI pública (lo único que ve JS). CONTRATO CONGELADO.
-  src/bus.h            Interfaz CPU↔máquina (funciones static inline, sin punteros a función)
-  src/z80.c z80.h      CPU Z80
+  include/testbus.h    ABI de core-test.wasm. CONGELADO.
+  src/bus.h            Contrato CPU↔máquina (static inline + unity build). CONGELADO.
+  src/machine.h        Contrato entre módulos de la máquina (struct zx, video_*, audio_*, tape_*). CONGELADO.
+  src/base.h           memcpy/memset sin libc, ZX_ASSERT
+  src/z80.c            CPU Z80 (se incluye desde zx48.c y testbus.c, no se compila suelto)
   src/zx48.c           Máquina: mapa de memoria, contención, puertos, frame, INT
   src/video.c          Render perezoso de pantalla+borde a framebuffer RGBA 352×296
   src/audio.c          Registro de cambios del beeper y resampleado
   src/tape.c snap.c    Trampa LD-BYTES, TAP, SNA, Z80
   src/debug.c          Breakpoints, paso, ejecución hasta…
   src/testbus.c        Máquina plana de 64 KB sin contención (sólo build de tests)
-rom/48.rom
-tools/                 Scripts Node: build-core, fetch-rom, fetch-tests
+rom/48.rom             ROM original (versionada; aviso de copyright en rom/README.md)
+build/wasm/            Salida de build:core (no versionada); core.wasm se copia a web/public/wasm/
+tools/                 Scripts Node: build-core, fetch-rom, fetch-tests, bench
 web/                   App Vite
   src/emu/             Envoltorio wasm, bucle, vídeo, audio, teclado
   src/asm/             Ensamblador Z80 (TS puro, sin DOM)
@@ -178,7 +182,9 @@ errors: Array<{line, col, msg}> }`. Puro, sin DOM, determinista.
 
 - **Un agente, un directorio.** Cada tarea de PLAN.md declara los ficheros que posee.
   No se editan ficheros de otro flujo; si hace falta, se pide al coordinador.
-- `zx.h` y `bus.h` sólo los cambia el coordinador.
+- `zx.h`, `testbus.h`, `bus.h` y `machine.h` sólo los cambia el coordinador.
+- En Windows, editar ficheros con las herramientas de edición, nunca con
+  `Get-Content | Set-Content` de PowerShell 5 (rompe el UTF-8).
 - Los tests van en el mismo cambio que el código. Primero el test que falla.
 - Las suites externas no se modifican ni se "ajustan" para pasar.
 - Si un dato de hardware es dudoso, se marca `[VERIFICAR]` en docs y se abre la duda,

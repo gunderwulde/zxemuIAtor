@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>zxemuIAtor</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="ide" aria-label="Ensamblador Z80">
+        <header class="bar">
+          <strong>Ensamblador Z80</strong>
+          <button id="asm-run" type="button" disabled title="Ensamblar y ejecutar (Ctrl+Enter)">Ensamblar y ejecutar</button>
+        </header>
+        <textarea id="asm-source" spellcheck="false" placeholder="; Escribe aquí tu código Z80…">        ORG 32768
+start:  ld a,2
+        out (254),a
+        ret
+</textarea>
+        <pre id="asm-log" class="log"></pre>
+      </section>
+      <section class="emu" aria-label="ZX Spectrum 48K">
+        <header class="bar">
+          <strong>ZX Spectrum 48K</strong>
+          <button id="emu-reset" type="button">Reset</button>
+          <button id="emu-pause" type="button">Pausa</button>
+          <span id="emu-status" class="status"></span>
+        </header>
+        <div class="screen-wrap">
+          <canvas id="screen" width="352" height="296" tabindex="0"></canvas>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

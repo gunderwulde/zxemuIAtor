@@ -25,9 +25,14 @@ Fase 3 (secuencial) revisión global · pulido · README
 
 ---
 
-## Fase 0 — Cimientos (coordinador, secuencial)
+## Fase 0 — Cimientos (coordinador, secuencial) — ✅ COMPLETADA
 
 Nada de esto se paraleliza: fija los contratos de los que depende todo lo demás.
+
+Estado al cerrar: los tres `.wasm` compilan con `-Werror`; `npm test` pasa 11 tests de ABI;
+`npm run build` genera la web; el servidor de desarrollo sirve COOP/COEP. Contratos
+congelados: `zx.h`, `testbus.h`, `bus.h`, `machine.h`. Los módulos `z80.c`, `zx48.c`,
+`video.c`, `audio.c`, `tape.c`, `snap.c` son **stubs** marcados con su flujo dueño.
 
 | # | Tarea | Aceptación |
 |---|---|---|
@@ -49,7 +54,7 @@ Los siete flujos sólo comparten los contratos de la fase 0, así que no se bloq
 entre sí. Cada uno trabaja contra stubs o mocks hasta la integración.
 
 ### C1 — CPU Z80
-- **Posee:** `core/src/z80.c`, `core/src/z80.h`
+- **Posee:** `core/src/z80.c` (unity build: lo incluyen zx48.c y testbus.c; ver bus.h)
 - **Depende de:** 0.5
 - **Trabajo:**
   1. Struct `Z80` plano (registros, alternos, IX/IY, I, R, IFF1/2, IM, MEMPTR, Q, halted,

@@ -1,0 +1,59 @@
+:root {
+  --bg: #15161a;
+  --panel: #1d1f24;
+  --line: #2c2f36;
+  --text: #d8dae0;
+  --muted: #8a8f9a;
+  --accent: #d7d700;
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.2fr);
+  height: 100vh;
+}
+
+.ide, .emu { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.ide { border-right: 1px solid var(--line); background: var(--panel); }
+
+.bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-bottom: 1px solid var(--line);
+}
+.bar strong { margin-right: auto; font-weight: 600; }
+.status { color: var(--muted); font: 12px ui-monospace, monospace; }
+
+button {
+  background: #2a2d34; color: var(--text); border: 1px solid var(--line);
+  border-radius: 4px; padding: 4px 10px; font: inherit; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+#asm-source {
+  flex: 1; resize: none; border: 0; outline: 0; padding: 12px;
+  background: transparent; color: var(--text);
+  font: 14px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; tab-size: 8;
+}
+.log {
+  margin: 0; max-height: 25%; overflow: auto; padding: 8px 12px;
+  border-top: 1px solid var(--line); color: var(--muted); font: 12px ui-monospace, monospace;
+}
+
+.screen-wrap { flex: 1; display: grid; place-items: center; padding: 16px; min-height: 0; }
+#screen {
+  width: min(100%, calc((100vh - 80px) * 352 / 296));
+  aspect-ratio: 352 / 296;
+  image-rendering: pixelated;
+  outline: none;
+}
+#screen:focus { box-shadow: 0 0 0 2px var(--accent); }
+
+@media (max-width: 800px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 1fr auto; height: auto; }
+}

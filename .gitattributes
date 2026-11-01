@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.rom binary
+*.tap binary
+*.sna binary
+*.z80 binary
+*.com binary
+*.wasm binary

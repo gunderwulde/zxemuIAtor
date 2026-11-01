@@ -1,0 +1,23 @@
+{
+  "name": "zxemuiator",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build:core": "node tools/build-core.mjs",
+    "fetch": "node tools/fetch-rom.mjs && node tools/fetch-tests.mjs",
+    "fetch:singlestep": "node tools/fetch-tests.mjs --singlestep",
+    "dev": "npm run build:core && vite",
+    "build": "npm run build:core && tsc --noEmit && vite build",
+    "test": "vitest run",
+    "test:z80": "vitest run tests/core/cpu",
+    "bench": "node tools/bench.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
