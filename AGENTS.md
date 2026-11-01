@@ -64,6 +64,7 @@ docs/
 | `npm test` | Vitest completo (requiere build:core) |
 | `npm run test:z80` | Sólo suites de CPU (FUSE, SingleStepTests, zexdoc/zexall, Rak) |
 | `npm run bench` | Mide MHz emulados y ms/frame; imprime comparación con la línea base |
+| `npm run test:perf` | Tests de tiempo (`*.bench-test.ts`: ensamblador, compilador C), de uno en uno; fuera de `npm test` para que la carga no los falsee |
 
 Flags de clang: `--target=wasm32 -nostdlib -O2 -std=c99 -Wall -Wextra -Werror
 -Wl,--no-entry`. Las funciones públicas se marcan con `ZX_EXPORT`
