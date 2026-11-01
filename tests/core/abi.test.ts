@@ -10,7 +10,7 @@ const PROBE_EXPORTS = [
   "zx_t_buslog_enable", "zx_t_buslog", "zx_t_buslog_len", "zx_t_beeper_log", "zx_t_beeper_log_len",
 ];
 const TESTBUS_EXPORTS = [
-  "memory", "tb_reset", "tb_mem", "tb_regs", "tb_tstates", "tb_set_tstates", "tb_step", "tb_run",
+  "memory", "tb_reset", "tb_mem", "tb_regs", "tb_tstates", "tb_set_tstates", "tb_step", "tb_run", "tb_run_to",
   "tb_set_int", "tb_set_int_data", "tb_nmi", "tb_log_enable", "tb_events", "tb_event_count",
   "tb_port_queue", "tb_port_queue_set",
 ];

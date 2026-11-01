@@ -76,8 +76,11 @@ static uint8_t read_fe(uint16_t port)
     for (int row = 0; row < 8; row++)
         if (!(port >> (8 + row) & 1))
             v &= zx.keys[row];
-    /* Bit 6 sin cinta: Issue 3 sigue a EAR (bit 4); Issue 2 necesita MIC y EAR a 0. */
-    uint8_t ear = zx.issue == 2 ? (zx.last_fe & 0x18) != 0 : (zx.last_fe >> 4) & 1;
+    /* Bit 6: la cinta si está sonando; si no, Issue 3 sigue a EAR (bit 4) e Issue 2
+     * necesita MIC y EAR a 0. */
+    int tape = tape_ear_bit(zx.t);
+    uint8_t ear = tape >= 0 ? (uint8_t)tape
+                : zx.issue == 2 ? (zx.last_fe & 0x18) != 0 : (zx.last_fe >> 4) & 1;
     return (uint8_t)(v | 0xA0 | ear << 6);
 }
 
@@ -124,6 +127,7 @@ static void end_frame(void)
 {
     video_end_frame();
     audio_end_frame(ZX_TSTATES_PER_FRAME);
+    tape_end_frame(ZX_TSTATES_PER_FRAME);
     zx.t -= ZX_TSTATES_PER_FRAME;
     zx.frame++;
 }

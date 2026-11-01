@@ -102,6 +102,13 @@ uint32_t tb_run(uint32_t until)
     return t;
 }
 
+uint32_t tb_run_to(uint32_t until, uint32_t stop_pc)
+{
+    while (t < until && cpu.pc.w != (uint16_t)stop_pc)
+        z80_step(&cpu);
+    return t;
+}
+
 void tb_log_enable(uint32_t on)
 {
     log_on = on != 0;

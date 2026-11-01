@@ -20,6 +20,9 @@ ZX_EXPORT(tb_tstates)       uint32_t    tb_tstates(void);
 ZX_EXPORT(tb_set_tstates)   void        tb_set_tstates(uint32_t t);
 ZX_EXPORT(tb_step)          void        tb_step(void);            /* una llamada a z80_step */
 ZX_EXPORT(tb_run)           uint32_t    tb_run(uint32_t until);   /* z80_step mientras t < until */
+/* z80_step mientras t < until y PC != stop_pc (comprobado en cada límite de instrucción,
+ * también antes del primer paso). Para trampas tipo BDOS sin salir a JS por instrucción. */
+ZX_EXPORT(tb_run_to)        uint32_t    tb_run_to(uint32_t until, uint32_t stop_pc);
 ZX_EXPORT(tb_set_int)       void        tb_set_int(uint32_t active);
 ZX_EXPORT(tb_set_int_data)  void        tb_set_int_data(uint32_t v);
 ZX_EXPORT(tb_nmi)           void        tb_nmi(void);

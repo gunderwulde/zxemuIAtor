@@ -53,6 +53,13 @@ void     audio_end_frame(uint32_t frame_len);
 void     tape_reset(void);
 int      tape_trap(void);
 
+/* Reproducción por pulsos (respaldo para cargadores propios):
+ * tape_ear_bit(t): nivel de la señal EAR de la cinta en el T-state t del frame actual
+ * (0/1), o -1 si no hay cinta sonando (entonces el bit 6 de 0xFE sale de Issue 2/3).
+ * tape_end_frame(frame_len): zx48.c la llama al cerrar cada frame. */
+int      tape_ear_bit(uint32_t t);
+void     tape_end_frame(uint32_t frame_len);
+
 /* ---- debug.c (D1) ---- */
 extern uint8_t  debug_bp_map[65536 / 8];
 extern uint32_t debug_bp_count;
