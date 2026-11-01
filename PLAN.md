@@ -317,6 +317,41 @@ registros preservados, layout de structs, nombres de símbolos (`_nombre`), arra
 - **Aceptación:** tests sin DOM de la lógica de pestañas y del flujo compilar/ejecutar
   contra el núcleo real; ejemplo C por defecto visual.
 
+### K2 — Código generado más rápido (pendiente; pedida por el usuario)
+- **Posee:** `web/src/cc/**`, `tests/cc/**`, `docs/c-abi.md`
+- **Depende de:** K1, revisión de la fase 2C cerrada
+- **Medición:** T-states en el núcleo (deterministas, no dependen de la carga de la
+  máquina), no milisegundos. Banco de programas: fib, criba, burbuja (ya en K1) más
+  dibujo de sprites y un bucle de juego típico. Cada mejora con su número antes/después
+  y el oráculo de clang idéntico.
+- **Trabajo, por rentabilidad:**
+  1. Locales y parámetros en direcciones fijas para funciones no recursivas (el grafo de
+     llamadas es conocido: compilación de programa completo). `ld hl,(nn)` 16 T frente a
+     2× `ld r,(ix+d)` 38 T. Las recursivas siguen con marco IX.
+  2. Condiciones sobre flags: `if (x < 10)` → `cp`/`jr`, sin materializar 0/1; `&&`/`||`
+     en saltos.
+  3. Operandos simples (constante, variable, `p[i]`) sin `push`/`pop`; plegado de
+     constantes; `djnz` en bucles con contador `char`; `inc hl` en recorridos de punteros.
+  4. Aritmética de 8 bits cuando el resultado se trunca a `char` (en A, sin promoción).
+  5. Locales calientes en BC/DE en funciones hoja y bucles sin llamadas.
+  6. Intrínsecos en línea de la librería (`peek`, `poke`, `abs`, dirección de atributo).
+  7. Más reglas de peephole (cargas tras escritura, salto a salto, `ld a,l`/`ld l,a`).
+- **Aceptación:** todas las suites de `tests/cc` y `tests/clib` pasan; banco con mejora
+  medida en T-states por punto; ABI documentada si cambia (cambiar la de llamadas
+  obliga a revisar la librería ensamblador de L1).
+
+### Pendiente al retomar (estado al cerrar la sesión del 2026-11-01)
+- La revisión §4.2 de K1/L1/U1 se interrumpió a petición del usuario: lanzarla de nuevo
+  con un revisor que no sea autor y corregir lo que salga.
+- `tests/cc/perf.bench-test.ts` marcó 250 ms (K1 midió 92 ms con el mismo código) con la
+  máquina cargada: volver a medir con `npm run test:perf` cuando esté libre.
+- D1: carrera en `runTo` del controlador del depurador (la microtarea de "paused" quita el
+  breakpoint temporal si se llama con el bucle en marcha); U1 la esquiva en
+  `web/src/ui/tabs/debug.ts`.
+- `mountDebugger` (D1) y `mountEditor` (I1) ya no se usan en `main.ts`: borrar o reutilizar.
+- Opcionales sin decidir: Kempston en el núcleo, turbo de cinta, play/expulsar cinta,
+  campo de nombre del TAP, favicon, audio en navegadores reales.
+
 ---
 
 ## Fase 3 — Cierre (secuencial)
@@ -347,6 +382,7 @@ registros preservados, layout de structs, nombres de símbolos (`_nombre`), arra
 | K1 Compilador C | 2C | A1 | L1 (ABI), U1 (modo C) |
 | L1 Librería C | 2C | ABI de K1 | ejemplos C de U1 |
 | U1 Pestañas + C en UI | 2C | I1, D1, K1 | fase 3 |
+| K2 Código C más rápido | 2C | K1, revisión 2C | — |
 
 Máximo de agentes simultáneos: **7** en la fase 1 y **5** en la fase 2, más un revisor
 por tarea al cerrar.
