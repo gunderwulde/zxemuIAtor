@@ -406,3 +406,27 @@ describe("REPT: errores", () => {
     expect(errorsOf(r).map((e) => [e.line, e.col])).toEqual([[3, 2], [3, 2]]);
   });
 });
+
+describe("PHASE / DEPHASE", () => {
+  it("los símbolos y $ valen la dirección lógica; los bytes van a la física", () => {
+    // Se carga en 8000h pero se ejecutará en C000h (p. ej. una rutina que se copia con LDIR).
+    const r = asm(" org 8000h\n nop\n phase 0C000h\nrel: jp rel\n dw $\n dephase\nafter: nop\n");
+    expect(errorsOf(r)).toEqual([]);
+    expect(r.segments).toHaveLength(1);
+    expect(r.segments[0]!.addr).toBe(0x8000);
+    expect([...r.segments[0]!.bytes]).toEqual([0x00, 0xc3, 0x00, 0xc0, 0x03, 0xc0, 0x00]);
+    expect(r.symbols.get("rel")).toBe(0xc000);
+    expect(r.symbols.get("after")).toBe(0x8006);
+  });
+  it("PHASE sin DEPHASE se cierra con ORG, y se puede abrir otra fase seguida", () => {
+    const r = asm(" org 8000h\n phase 100h\na: db 1\n phase 200h\nb: db 2\n org 9000h\nc: db 3\n");
+    expect(errorsOf(r)).toEqual([]);
+    expect(r.segments.map((s) => [s.addr, [...s.bytes]])).toEqual([[0x8000, [1, 2]], [0x9000, [3]]]);
+    expect([r.symbols.get("a"), r.symbols.get("b"), r.symbols.get("c")]).toEqual([0x100, 0x200, 0x9000]);
+  });
+  it("el salto relativo se calcula con direcciones lógicas", () => {
+    const r = asm(" org 8000h\n phase 0AFC8h\ntop: nop\n jr top\n");
+    expect(errorsOf(r)).toEqual([]);
+    expect([...r.segments[0]!.bytes]).toEqual([0x00, 0x18, 0xfd]);
+  });
+});

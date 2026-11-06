@@ -62,6 +62,7 @@ predefinidos), `maxErrors`.
 | `DW/DEFW/WORD` | Aviso fuera de -32768..65535. |
 | `DS/DEFS/BLOCK n[,relleno]` | Emite `n` bytes (relleno 0 por defecto). |
 | `ALIGN n[,relleno]` | Rellena hasta múltiplo de `n`. |
+| `PHASE n` … `DEPHASE` | Los símbolos y `$` valen la dirección lógica `n`, pero los bytes se escriben donde estaba el contador (dirección física). Para código que se carga en un sitio y se copia (LDIR) a otro. `ORG` cierra la fase. |
 | `END [entrada]`, `ENT [dir]` | Lo que sigue a END se ignora. |
 | `nombre MACRO p1,p2` / `MACRO nombre p1,p2` … `ENDM`/`ENDMACRO` | Parámetros por nombre (sustitución textual de identificadores completos, fuera de cadenas). `p:valor` da valor por defecto (sjasm). `LOCAL a,b` y `&a` (M80). Argumentos `<a,b>` agrupan texto con comas. Se invoca por su nombre. Sin macros anidadas en la definición; hasta 64 niveles de expansión. |
 | `REPT n`/`DUP n`/`REPEAT n` … `ENDR`/`EDUP`/`ENDREPEAT` | `@#` = número de iteración (sjasm). |

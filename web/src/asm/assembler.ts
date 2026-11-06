@@ -102,7 +102,7 @@ const LD_ROT = /^(rlc|rrc|rl|rr|sla|sra|sll|sl1|sli|srl|res|set)\s/i;
 
 const DIRECTIVES = new Set([
   "org", "equ", "defl", "db", "defb", "byte", "defm", "dm", "dz", "dc", "dw", "defw", "word",
-  "ds", "defs", "block", "align", "end", "ent", "macro", "endm", "endmacro", "local",
+  "ds", "defs", "block", "align", "phase", "dephase", "end", "ent", "macro", "endm", "endmacro", "local",
   "if", "ifdef", "ifndef", "ifidn", "ifdif", "else", "elseif", "endif", "include", "incbin", "error",
   "rept", "dup", "repeat", "endr", "edup", "endrepeat", "aseg", "title", "subttl", "eject", "page", "device", "z80",
 ]);
@@ -265,6 +265,8 @@ class Assembler {
 
   entry: number | undefined;
   firstAddr: number | undefined;
+  /** PHASE: dirección lógica − dirección física (0 fuera de PHASE). */
+  phase = 0;
   mem = new Uint8Array(65536);
   written = new Uint8Array(65536);
   stmtOverlap = false;
@@ -436,14 +438,16 @@ class Assembler {
       this.pc++;
       return;
     }
-    if (this.firstAddr === undefined) this.firstAddr = this.pc;
+    // Con PHASE los símbolos y $ valen la dirección lógica, pero el byte se escribe donde se carga.
+    const at = (this.pc - this.phase) & 0xffff;
+    if (this.firstAddr === undefined) this.firstAddr = at;
     if (this.pass === 2) {
-      if (this.written[this.pc] && !this.stmtOverlap) {
+      if (this.written[at] && !this.stmtOverlap) {
         this.stmtOverlap = true;
-        this.report(0, `se sobrescribe la dirección ${this.pc.toString(16).toUpperCase().padStart(4, "0")}h`, "warning");
+        this.report(0, `se sobrescribe la dirección ${at.toString(16).toUpperCase().padStart(4, "0")}h`, "warning");
       }
-      this.mem[this.pc] = b & 0xff;
-      this.written[this.pc] = 1;
+      this.mem[at] = b & 0xff;
+      this.written[at] = 1;
     }
     this.pc++;
   }
@@ -677,8 +681,21 @@ class Assembler {
         const v = this.p1Value(text, s, e);
         if (v < 0 || v > 0xffff) this.report(s, "ORG fuera de 0..FFFFh");
         this.pc = v & 0xffff;
+        this.phase = 0;
         return;
       }
+      case "phase": {
+        // La dirección física sigue donde estábamos; lo que se ensambla a partir de aquí cree estar en v.
+        const v = this.p1Value(text, s, e);
+        if (v < 0 || v > 0xffff) { this.report(s, "PHASE fuera de 0..FFFFh"); return; }
+        this.phase = v - (this.pc - this.phase);
+        this.pc = v & 0xffff;
+        return;
+      }
+      case "dephase":
+        this.pc = (this.pc - this.phase) & 0xffff;
+        this.phase = 0;
+        return;
       case "db": case "defb": case "byte": case "defm": case "dm": case "dz": case "dc":
         this.dataBytes(lop, text, s, e);
         return;
@@ -1217,6 +1234,7 @@ export function assemble(source: string, opts: AsmOptions = {}): AsmResult {
   for (let pass = 1; pass <= 2; pass++) {
     as.pass = pass;
     as.pc = org;
+    as.phase = 0;
     as.global = "";
     as.macroPrefix = null;
     as.macroDepth = 0;

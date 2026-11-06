@@ -11,7 +11,7 @@ export const MNEMONICS: ReadonlySet<string> = new Set([...Z80_ISA.map((e) => e.m
 /** Directivas (README de A1, tabla "Directivas"), sin el punto opcional. */
 export const DIRECTIVES: ReadonlySet<string> = new Set([
   "org", "equ", "defl", "db", "defb", "byte", "defm", "dm", "dz", "dc", "dw", "defw", "word",
-  "ds", "defs", "block", "align", "end", "ent", "macro", "endm", "endmacro", "local",
+  "ds", "defs", "block", "align", "phase", "dephase", "end", "ent", "macro", "endm", "endmacro", "local",
   "if", "ifdef", "ifndef", "ifidn", "ifdif", "else", "elseif", "endif", "include", "error",
   "rept", "dup", "repeat", "endr", "edup", "endrepeat", "aseg", "title", "subttl", "eject",
   "page", "device", "z80",
