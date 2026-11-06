@@ -32,7 +32,7 @@ lvl_actors:
 ; Sin usar.
  ds 36
 
-; Apariciones de enemigos: 15 entradas de 6 bytes.
+; Apariciones de enemigos: registros de 3 bytes (escena, columna, fila); el juego usa 16.
 lvl_spawns:
  db 001h,018h,006h,001h,01Eh,006h
  db 004h,01Ch,009h,004h,003h,006h

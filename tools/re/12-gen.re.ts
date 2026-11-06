@@ -146,7 +146,7 @@ for (let l = 0; l < 4; l++) {
     `; 129 celdas de 8×8 con los sprites de este nivel (enemigos y actores, con sus máscaras).\n incbin "lvl${l + 1}.tiles"\n\n` +
     "; Actores: 8 entradas de 8 bytes (escena, columna, fila, tipo, puntero al gráfico, puntero a la máscara).\nlvl_actors:\n" +
     rows(0xce40, 64, 8, actor) + "\n\n; Sin usar.\n ds 36\n\n" +
-    "; Apariciones de enemigos: 15 entradas de 6 bytes.\nlvl_spawns:\n" + rows(0xcea4, 90, 6, spawn) + "\n\n" +
+    "; Apariciones de enemigos: registros de 3 bytes (escena, columna, fila); el juego usa 16.\nlvl_spawns:\n" + rows(0xcea4, 90, 6, spawn) + "\n\n" +
     "; Cuerpo: 18432 bytes en 61A8h = 4 fondos de 4608 (128 líneas de bitmap + 16 filas de atributos), uno por escena.\n" +
     " org 61A8h\nlevel_body:\n" + body + "\n");
 }

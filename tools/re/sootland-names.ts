@@ -48,7 +48,7 @@ export const ENGINE: Names = {
     0xed1b: "Dibuja la escena: copia el fondo de v_scene (0x1200 bytes: 4096 de bitmap y 512 de atributos) de\n" +
       "level_body a bg_buffer, coloca los actores y escribe marcadores con la ROM (mismo truco de número flotante).",
     0xedc2: "Un paso de juego: temporizadores del enemigo, avance, dibujo y llamada al bonus.",
-    0xeeae: "Tabla de apariciones: 15 entradas de 6 bytes (copiada de lvl_spawns, 90 bytes de la cabecera del nivel).",
+    0xeeae: "Tabla de apariciones: registros de 3 bytes (escena, columna, fila); el juego usa 16 (copiada de lvl_spawns, 90 bytes de la cabecera del nivel).",
     0xef08: "Variables del juego.\nv_scene: escena actual (1–4). v_score: 6 dígitos de la puntuación (el menos significativo\n" +
       "primero). v_record: récord. v_level: nivel (1–4). v_lives: vidas.",
     0xef2b: "Compone un fotograma: dibuja los 7 sprites en bg_buffer (guarda fondo, AND con máscara, OR con gráfico),\n" +

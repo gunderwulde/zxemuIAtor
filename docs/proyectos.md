@@ -42,6 +42,32 @@ gráficos: Alberto Herraiz y Fernando Pérez; música: J. Torres. El código y l
 incluyen con permiso expreso de su programador principal, que es quien ha pedido este ejemplo.
 Cada fuente lleva este aviso en su cabecera.
 
+### Sootland en C
+
+`web/src/examples/sootland-c/` es el mismo juego con el **motor reescrito en C** (`engine.c`). Reutiliza
+tal cual el cargador, los niveles y el bloque final de `sootland/` (entradas `"sootland/…"` de su
+`project.json`); sólo cambia el bloque del motor, cuya fuente son dos ficheros:
+`src: ["pieces.asm", "engine.c"]`, con `fill: 0` para los huecos y `#pragma org 0xEA60`.
+
+| Fichero | Contenido |
+|---|---|
+| `engine.c` | toda la lógica: menús y carga de niveles, escenas, enemigos, bonus, disparo, vidas, puntuación |
+| `hw.c` / `hw.h` | lo que sigue en ensamblador: IN/OUT, registro R, llamadas a la ROM (`print_str`, `LD-BYTES`…), los bucles de espera, el sonido del AY y el blit de sprites |
+| `pieces.asm` | las tres piezas de recursos (marco, fuente y sprites) que reparte el stub de carga |
+
+Reglas que se cumplen y se comprueban en `tests/examples/sootland-c.test.ts`: la imagen cabe en el
+hueco hasta FFFAh (y `FFFFh`, el control elegido en el menú, queda libre); la cinta sólo difiere
+en el bloque del motor; la pantalla al empezar es idéntica a la del original; y a igual número de
+vueltas del bucle el juego tarda los mismos fotogramas (539 el original, 540 la versión en C).
+El blit de sprites es lo único que en C era demasiado lento (1,9 veces) y por eso está en `hw.c`.
+
+Diferencias y rarezas del original que se conservan a propósito:
+
+- Los 768 bytes que reproduce el sonido (11 `FFh` y el resto a 0) eran datos de la imagen; en C no caben y se generan al vuelo.
+- La tabla de apariciones son **registros de 3 bytes** (escena, columna, fila) que se leen en `3·((FRAMES & 15) + 1)`, no entradas de 6.
+- Tras perder la última vida el nivel **no** vuelve a 1; la cifra de más peso de la puntuación (`digits[5]`) no se pone a cero al empezar partida; el récord no se actualiza nunca; y el búfer de fondo del segundo enemigo es la máscara del primero.
+- El disparo comprueba además que el enemigo esté en la escena que se ve (en el original lo daba por hecho un efecto de los flags, equivalente en los estados alcanzables).
+
 ### Cómo se obtuvo (`tools/re/`)
 
 Scripts que se ejecutan como tests con `npx vitest run --config vitest.re.config.ts tools/re/<n>.re.ts`

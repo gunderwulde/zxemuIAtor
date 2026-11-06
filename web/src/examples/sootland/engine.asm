@@ -547,7 +547,7 @@ lbl_EE9F:   inc  de
             ld   bc,0032h
             ld   (v_step_timer),bc
             ret
-; Tabla de apariciones: 15 entradas de 6 bytes (copiada de lvl_spawns, 90 bytes de la cabecera del nivel).
+; Tabla de apariciones: registros de 3 bytes (escena, columna, fila); el juego usa 16 (copiada de lvl_spawns, 90 bytes de la cabecera del nivel).
 spawn_table:
  db 01h,00h,09h,04h,0Ah,06h,03h,09h,03h,01h,00h,09h,02h,11h,0Dh,02h
  db 1Dh,04h,03h,00h,0Ah,03h,09h,03h,04h,0Ah,06h,04h,12h,0Bh,01h,00h
