@@ -12,7 +12,7 @@
 // (módulos). Los .c con main de otras pestañas (ejemplos abiertos, otros programas) no
 // entran, así que no chocan entre sí.
 
-import { resourceKindOf, resourceKinds } from "../../res/registry";
+import { resourceKindOf, resourceKinds, splitPart } from "../../res/registry";
 
 export type TabKind = "asm" | "c" | "h";
 export type ReadOnlyKind = "gen" | "lib";
@@ -89,7 +89,7 @@ export class TabsModel {
   /** null si `name` vale para la pestaña `self` (o una nueva); si no, el motivo. */
   checkName(name: string, self?: number): string | null {
     if (name.trim() !== name || name === "") return "El nombre no puede estar vacío ni empezar o acabar en espacio.";
-    if (/[\\/<>:"|?*\u0000-\u001f]/.test(name)) return "El nombre no puede llevar \\ / < > : \" | ? * ni caracteres de control.";
+    if (/[\\/<>:"|?*#\u0000-\u001f]/.test(name)) return "El nombre no puede llevar \\ / < > : \" | ? * # ni caracteres de control.";
     if (!kindOf(name) && !resourceKindOf(name)) {
       const exts = [".asm", ".c", ".h", ...resourceKinds().map((k) => "." + k.ext)];
       return `El nombre debe acabar en ${exts.slice(0, -1).join(", ")} o ${exts[exts.length - 1]}.`;
@@ -190,8 +190,16 @@ export class TabsModel {
 
   /** Para INCLUDE del ensamblador: pestaña de usuario por nombre (sin distinguir mayúsculas). */
   userText(name: string): string | undefined {
-    const t = this.find(name.replace(/^.*[\\/]/, ""));
-    return t && !t.ro ? t.text : undefined;
+    const [file, part] = splitPart(name.replace(/^.*[\\/]/, ""));
+    const t = this.find(file);
+    if (!t || t.ro) return undefined;
+    const k = resourceKindOf(t.name);
+    if (part === "") return k ? undefined : t.text;
+    // "recurso.ext#inc": constantes generadas (tamaños, números de bit…).
+    if (part !== "inc" || !k?.inc) return undefined;
+    const bad = k.check(t.text);
+    if (bad !== null) throw new Error(`${t.name}: ${bad}`);
+    return k.inc(t.text, t.name.replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9_]/g, "_"));
   }
 
   /**
@@ -200,13 +208,16 @@ export class TabsModel {
    * documento no es válido, lanza con el motivo.
    */
   binOf(name: string): Uint8Array | undefined {
-    const t = this.find(name.replace(/^.*[\/]/, ""));
+    const [file, part] = splitPart(name.replace(/^.*[\\/]/, ""));
+    const t = this.find(file);
     if (!t || t.ro) return undefined;
     const k = resourceKindOf(t.name);
     if (!k) return undefined;
+    const bin = part === "" ? k.toBin : k.parts?.[part];
+    if (!bin) return undefined;
     const bad = k.check(t.text);
     if (bad !== null) throw new Error(`${t.name}: ${bad}`);
-    return k.toBin(t.text);
+    return bin(t.text);
   }
 
   // ---- Persistencia ----

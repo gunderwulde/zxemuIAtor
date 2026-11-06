@@ -59,21 +59,32 @@ const WR = 3, WG = 4, WB = 2;
 const dist = (r: number, g: number, b: number, c: readonly [number, number, number]) =>
   WR * (r - c[0]) ** 2 + WG * (g - c[1]) ** 2 + WB * (b - c[2]) ** 2;
 
+/** Resultado de convertir una imagen por celdas: 1 = tinta por píxel y un atributo por celda de 8×8. */
+export interface CellImage {
+  w: number;
+  h: number;
+  /** w·h valores (0/1), fila a fila. */
+  bits: Uint8Array;
+  /** (w/8)·(h/8) atributos (BRIGHT<<6 | PAPER<<3 | INK), fila a fila. */
+  attrs: Uint8Array;
+}
+
 /**
- * RGBA 256×192 → pantalla. Cada celda de 8×8 admite dos colores (tinta y papel) y un
- * brillo común, así que se prueban los 2·8·8 = 128 pares y gana el de menor error total;
- * a igualdad, el de menos píxeles de tinta y luego el primero en orden (brillo, papel,
- * tinta). Un píxel a igual distancia de los dos va al papel. La transparencia se
- * compone sobre negro. Determinista: sin aleatorios.
+ * RGBA w×h (múltiplos de 8) → píxeles y atributos. Cada celda de 8×8 admite dos colores
+ * (tinta y papel) y un brillo común, así que se prueban los 2·8·8 = 128 pares y gana el de
+ * menor error total; a igualdad, el de menos píxeles de tinta y luego el primero en orden
+ * (brillo, papel, tinta). Un píxel a igual distancia de los dos va al papel. La
+ * transparencia se compone sobre negro. Determinista: sin aleatorios.
  */
-export function convertRgba(rgba: ArrayLike<number>, opts: ConvertOptions): Uint8Array {
-  if (rgba.length !== SCR_W * SCR_H * 4) throw new Error("se esperaba una imagen RGBA de 256×192");
-  const scr = new Uint8Array(SCR_SIZE);
+export function convertCells(rgba: ArrayLike<number>, w: number, h: number, opts: ConvertOptions): CellImage {
+  if (w % 8 || h % 8 || w <= 0 || h <= 0 || rgba.length !== w * h * 4) throw new Error("se esperaba una imagen RGBA con ancho y alto múltiplos de 8");
+  const bits = new Uint8Array(w * h);
+  const attrs = new Uint8Array((w >> 3) * (h >> 3));
   const px = new Int32Array(64 * 3);
-  for (let cy = 0; cy < 24; cy++) {
-    for (let cx = 0; cx < 32; cx++) {
+  for (let cy = 0; cy < h >> 3; cy++) {
+    for (let cx = 0; cx < w >> 3; cx++) {
       for (let k = 0; k < 64; k++) {
-        const o = ((cy * 8 + (k >> 3)) * SCR_W + cx * 8 + (k & 7)) * 4;
+        const o = ((cy * 8 + (k >> 3)) * w + cx * 8 + (k & 7)) * 4;
         const a = rgba[o + 3]! / 255;
         px[k * 3] = Math.round(rgba[o]! * a);
         px[k * 3 + 1] = Math.round(rgba[o + 1]! * a);
@@ -94,7 +105,7 @@ export function convertRgba(rgba: ArrayLike<number>, opts: ConvertOptions): Uint
           }
         }
       }
-      scr[BITMAP_SIZE + cy * 32 + cx] = (bb << 6) | (bp << 3) | bi;
+      attrs[cy * (w >> 3) + cx] = (bb << 6) | (bp << 3) | bi;
       const cp = PALETTE[bp + 8 * bb]!, ci = PALETTE[bi + 8 * bb]!;
       const vr = ci[0] - cp[0], vg = ci[1] - cp[1], vb = ci[2] - cp[2];
       const len2 = vr * vr + vg * vg + vb * vb;
@@ -108,9 +119,21 @@ export function convertRgba(rgba: ArrayLike<number>, opts: ConvertOptions): Uint
         } else {
           ink = dist(r, g, bl, ci) < dist(r, g, bl, cp);
         }
-        if (ink) scr[bitmapOffset(x, y)]! |= 0x80 >> (x & 7);
+        if (ink) bits[y * w + x] = 1;
       }
     }
+  }
+  return { w, h, bits, attrs };
+}
+
+/** RGBA 256×192 → pantalla (ver convertCells). */
+export function convertRgba(rgba: ArrayLike<number>, opts: ConvertOptions): Uint8Array {
+  if (rgba.length !== SCR_W * SCR_H * 4) throw new Error("se esperaba una imagen RGBA de 256×192");
+  const c = convertCells(rgba, SCR_W, SCR_H, opts);
+  const scr = new Uint8Array(SCR_SIZE);
+  scr.set(c.attrs, BITMAP_SIZE);
+  for (let y = 0; y < SCR_H; y++) {
+    for (let x = 0; x < SCR_W; x++) if (c.bits[y * SCR_W + x]) scr[bitmapOffset(x, y)]! |= 0x80 >> (x & 7);
   }
   return scr;
 }

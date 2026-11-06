@@ -45,9 +45,38 @@ titulo: incbin "titulo.scr"
 (Para cargarla desde la cinta antes del juego hace falta un bloque aparte; el exportador
 de TAP todavía no lo genera.)
 
+## `.tiles` — conjunto de tiles
+
+Tiles de 8×8 o de 16×16 (se elige al crear el conjunto; hasta 256). Cada tile lleva dibujo,
+color por cuadro de 8×8 (tinta, papel y brillo: 1 atributo en 8×8, 4 en 16×16), 8 banderas con
+nombre (los 8 bits de `props`), un byte `val` libre para el código y un nombre opcional.
+Es compatible con los tiles de zxgen (cadenas "X"/"." y atributos TL, TR, BL, BR).
+
+Documento: `{"v":1,"size":16,"flags":[8 nombres],"tiles":[{"name","pix":[filas],"atr":[…],"props","val"}]}`,
+un tile por línea.
+
+Salidas para el código (nombre de la pestaña, p. ej. `set.tiles`):
+
+| Fuente | Contenido |
+|---|---|
+| `INCBIN "set.tiles"` | Gráficos: por tile, size filas de size/8 bytes (alto primero). 8×8 = 8 bytes; 16×16 = 32. |
+| `INCBIN "set.tiles#attr"` | Atributos: 1 byte por tile (8×8) o 4 (16×16: TL, TR, BL, BR). |
+| `INCBIN "set.tiles#props"` | 1 byte por tile con las banderas. |
+| `INCBIN "set.tiles#val"` | 1 byte por tile. |
+| `INCLUDE "set.tiles#inc"` | Constantes: `set_COUNT`, `set_SIZE`, `set_GFX_BYTES`, `set_ATTRS`, una por bandera (`set_SOLID` = 1, `set_BLOCKS_SHOTS` = 2…) y `set_T_<NOMBRE>` = índice de cada tile con nombre. |
+
+El nombre de la pestaña no puede llevar `#`, que separa la parte. En el código C, un
+`.asm` auxiliar con el `INCLUDE`/`INCBIN` y `extern` (como los .asm de la librería).
+
+Editor: lienzo de píxeles (clic izquierdo tinta, derecho papel, arrastrando), color y brillo del
+cuadro (o de los cuatro), banderas, valor y nombre, reflejos, giro, inversión y desplazamiento
+con vuelta, duplicar/borrar/reordenar tiles (los índices cambian), deshacer (Ctrl+Z / Ctrl+Y) e
+**importar una hoja** de imagen: se corta en tiles del tamaño del conjunto, sin cambiar de
+escala, y se convierten con los mismos criterios que las pantallas.
+
 ## Añadir un tipo de recurso
 
-1. `registerResource({ ext, label, template, check, toBin })` en `web/src/res/`.
+1. `registerResource({ ext, label, template, check, toBin, parts?, inc? })` en `web/src/res/` (`parts`: salidas `INCBIN "nombre.ext#parte"`; `inc`: constantes para `INCLUDE "nombre.ext#inc"`).
 2. Un editor en `web/src/ui/res/` registrado con `registerResourceEditor(ext, factory)`;
    sin editor, la pestaña se edita como texto.
 3. Alta en `registerBuiltinResources()` (`web/src/ui/res/index.ts`).

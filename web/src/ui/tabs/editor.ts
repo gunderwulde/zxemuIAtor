@@ -199,6 +199,7 @@ export class TabsEditor {
   }
 
   private textOf(name: string): string | undefined {
+    if (name.includes("#")) return this.model.userText(name);
     const t = this.model.find(name.replace(/^.*[\\/]/, ""));
     return t && !t.ro ? this.stateOf(t).doc.toString() : undefined;
   }

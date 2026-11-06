@@ -3,7 +3,9 @@
 // igual que con el texto. Un tipo de recurso sin editor registrado se edita como texto.
 import { registerResource } from "../../res/registry";
 import { scrResource } from "../../res/scr";
+import { tilesResource } from "../../res/tiles";
 import { createScrEditor } from "./scr-editor";
+import { createTilesEditor } from "./tiles-editor";
 
 export interface ResourceIo {
   getText(): string;
@@ -32,4 +34,6 @@ export function registerBuiltinResources(): void {
   done = true;
   registerResource(scrResource);
   registerResourceEditor("scr", createScrEditor);
+  registerResource(tilesResource);
+  registerResourceEditor("tiles", createTilesEditor);
 }

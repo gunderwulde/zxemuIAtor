@@ -764,7 +764,8 @@ class Assembler {
     else if (c === 60 && text.charCodeAt(e - 1) === 62) path = path.slice(1, -1);
     if (!this.opts.include) { this.report(s, "INCLUDE no disponible (no hay resolvedor de ficheros)"); return; }
     if (this.includeDepth >= 16) { this.report(s, "demasiados INCLUDE anidados"); return; }
-    const src = this.opts.include(path, this.siteFile);
+    let src: string | undefined;
+    try { src = this.opts.include(path, this.siteFile); } catch (err) { this.report(s, err instanceof Error ? err.message : String(err)); return; }
     if (src === undefined) { this.report(s, `no se encuentra el fichero '${path}'`); return; }
     const saveLine = this.siteLine;
     this.includeDepth++;
