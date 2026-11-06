@@ -103,6 +103,27 @@ marcadores (clic izquierdo pone el tipo elegido, derecho lo quita), zoom ×1–�
 (ancla arriba-izquierda, lo nuevo se rellena con el tile elegido) y deshacer (Ctrl+Z / Ctrl+Y). Avisa si
 el mapa usa índices que el conjunto ligado no tiene (celdas en rojo oscuro con su número).
 
+## `.tape` — manifiesto de cinta (proyecto)
+
+No es un editor visual: se edita como JSON. Describe, en orden, los bloques de la cinta que
+debe generar el IDE; es lo que convierte un conjunto de pestañas en un **proyecto** (ver
+[proyectos.md](proyectos.md)). `toBin` no existe (no se puede `INCBIN`ear una cinta).
+
+```json
+{ "v": 1, "name": "Sootland",
+  "blocks": [
+    { "type": "basic", "name": "SHOOT", "autostart": 10, "source": "10 CLEAR 24999\n20 LOAD \"loader.bin\" CODE\n…" },
+    { "type": "code",  "name": "loader.bin", "src": "loader.asm", "addr": "0xAFC8", "len": 20535, "param2": 32887 },
+    { "type": "data",  "flag": 255, "src": "engine.asm", "addr": "0xD778", "len": 10370 } ] }
+```
+
+- `basic`: cabecera (tipo 0) y datos; el texto se tokeniza (`web/src/export/basic.ts`).
+- `code`: bloque con cabecera (tipo 3, `LOAD "nombre" CODE`); `param2` es el segundo parámetro de la cabecera.
+- `data`: bloque sin cabecera, el que lee `LD-BYTES` con IX/DE/A; sólo `flag` y datos.
+- Los bytes de `code`/`data` son los que el ensamblado de `src` dejó desde `addr`: `len` bytes o,
+  sin `len`, el tramo contiguo que empieza ahí. Direcciones y flags: número, `"0x…"` o `"…h"`.
+- Un mismo `src` puede aportar varios bloques (el nivel de Sootland: cabecera en CA38h y cuerpo en 61A8h).
+
 ## Añadir un tipo de recurso
 
 1. `registerResource({ ext, label, template, check, toBin, parts?, inc? })` en `web/src/res/` (`parts`: salidas `INCBIN "nombre.ext#parte"`; `inc`: constantes para `INCLUDE "nombre.ext#inc"`).
