@@ -22,7 +22,7 @@ Hay bytes en `segments` aunque haya errores (con 0 donde no se pudo calcular): l
 decide si los usa.
 
 Opciones: `org` (dirección inicial sin ORG, por defecto `0x8000`), `include`
-(resolvedor de INCLUDE; sin él, INCLUDE es un error), `defines` (símbolos
+(resolvedor de INCLUDE; sin él, INCLUDE es un error), `incbin` (ídem para INCBIN, devuelve `Uint8Array`), `defines` (símbolos
 predefinidos), `maxErrors`.
 
 ## Sintaxis
@@ -67,6 +67,7 @@ predefinidos), `maxErrors`.
 | `REPT n`/`DUP n`/`REPEAT n` … `ENDR`/`EDUP`/`ENDREPEAT` | `@#` = número de iteración (sjasm). |
 | `IF e` / `ELSEIF e` / `ELSE` / `ENDIF`, `IFDEF x`, `IFNDEF x`, `IFIDN a,b`, `IFDIF a,b` | Anidables. IFIDN compara texto (útil en macros). |
 | `INCLUDE fichero` | Con `opts.include`. |
+| `INCBIN "fichero"[, desplazamiento[, longitud]]` | Vuelca los bytes que devuelve `opts.incbin(path, from)` (sin él, error). Desplazamiento y longitud son expresiones ya definidas; fuera de rango es error. En el IDE, los ficheros son pestañas de recurso (`web/src/res/`). |
 | `ERROR "msg"` | Error de usuario. |
 | `ASEG`, `TITLE`, `.TITLE`, `DEVICE`, `.Z80`, … | Se ignoran. |
 

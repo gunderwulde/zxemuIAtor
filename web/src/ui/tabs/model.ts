@@ -12,6 +12,8 @@
 // (módulos). Los .c con main de otras pestañas (ejemplos abiertos, otros programas) no
 // entran, así que no chocan entre sí.
 
+import { resourceKindOf, resourceKinds } from "../../res/registry";
+
 export type TabKind = "asm" | "c" | "h";
 export type ReadOnlyKind = "gen" | "lib";
 
@@ -88,7 +90,10 @@ export class TabsModel {
   checkName(name: string, self?: number): string | null {
     if (name.trim() !== name || name === "") return "El nombre no puede estar vacío ni empezar o acabar en espacio.";
     if (/[\\/<>:"|?*\u0000-\u001f]/.test(name)) return "El nombre no puede llevar \\ / < > : \" | ? * ni caracteres de control.";
-    if (!kindOf(name)) return "El nombre debe acabar en .asm, .c o .h.";
+    if (!kindOf(name) && !resourceKindOf(name)) {
+      const exts = [".asm", ".c", ".h", ...resourceKinds().map((k) => "." + k.ext)];
+      return `El nombre debe acabar en ${exts.slice(0, -1).join(", ")} o ${exts[exts.length - 1]}.`;
+    }
     if (name.length > 64) return "El nombre es demasiado largo (máximo 64 caracteres).";
     const other = this.find(name);
     if (other && other.id !== self) return `Ya hay una pestaña «${other.name}».`;
@@ -187,6 +192,21 @@ export class TabsModel {
   userText(name: string): string | undefined {
     const t = this.find(name.replace(/^.*[\\/]/, ""));
     return t && !t.ro ? t.text : undefined;
+  }
+
+  /**
+   * Para INCBIN: bytes de un recurso (pestaña de usuario con extensión de recurso), por
+   * nombre sin distinguir mayúsculas. undefined si no existe o no es un recurso; si el
+   * documento no es válido, lanza con el motivo.
+   */
+  binOf(name: string): Uint8Array | undefined {
+    const t = this.find(name.replace(/^.*[\/]/, ""));
+    if (!t || t.ro) return undefined;
+    const k = resourceKindOf(t.name);
+    if (!k) return undefined;
+    const bad = k.check(t.text);
+    if (bad !== null) throw new Error(`${t.name}: ${bad}`);
+    return k.toBin(t.text);
   }
 
   // ---- Persistencia ----

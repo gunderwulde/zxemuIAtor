@@ -51,11 +51,19 @@ function tabOf(model: TabsModel, file: string): string {
 const fmt = (file: string, line: number, col: number, sev: "error" | "warning", msg: string) =>
   `${file}:${line}:${col}: ${sev === "error" ? "error" : "aviso"}: ${msg}`;
 
+/** INCLUDE e INCBIN del ensamblador: pestañas de usuario (y librería para INCLUDE). */
+export function asmOptsFor(model: TabsModel): AsmOptions {
+  return {
+    include: (path) => model.userText(path) ?? clibResolve(path),
+    incbin: (path) => model.binOf(path),
+  };
+}
+
 export function prepare(model: TabsModel, target: Tab): Build {
   if (kindOf(target.name) === "asm") {
     return {
       target, kind: "asm", source: target.text, label: target.name, ok: true, messages: [], diags: [],
-      asmOpts: { include: (path) => model.userText(path) ?? clibResolve(path) },
+      asmOpts: asmOptsFor(model),
     };
   }
   const cc = compile(model.cFiles(target), { main: target.name, includeResolver: (n) => clibResolve(n) });
@@ -64,7 +72,7 @@ export function prepare(model: TabsModel, target: Tab): Build {
   const nErr = cc.errors.filter((e) => e.severity === "error").length;
   if (nErr) messages.push({ severity: "error", text: `${nErr} error${nErr === 1 ? "" : "es"} de compilación: no se ejecuta nada.` });
   else messages.push({ severity: "info", text: `Compilado ${target.name}: ${cc.emitted.length} función${cc.emitted.length === 1 ? "" : "es"}; el ensamblador está en «${GEN_NAME}».` });
-  return { target, kind: "c", source: cc.asm, label: GEN_NAME, asmOpts: {}, cc, ok: nErr === 0, messages, diags };
+  return { target, kind: "c", source: cc.asm, label: GEN_NAME, asmOpts: asmOptsFor(model), cc, ok: nErr === 0, messages, diags };
 }
 
 export interface Finished {

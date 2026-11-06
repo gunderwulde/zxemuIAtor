@@ -14,6 +14,8 @@ export interface AsmOptions {
   org?: number;
   /** Resuelve INCLUDE: devuelve el texto o undefined si no existe. */
   include?: (path: string, from: string | undefined) => string | undefined;
+  /** Resuelve INCBIN: devuelve los bytes o undefined si no existe. */
+  incbin?: (path: string, from: string | undefined) => Uint8Array | undefined;
   /** Símbolos predefinidos (como EQU). */
   defines?: Record<string, number>;
   /** Máximo de errores + avisos devueltos. Por defecto 500. */
@@ -101,7 +103,7 @@ const LD_ROT = /^(rlc|rrc|rl|rr|sla|sra|sll|sl1|sli|srl|res|set)\s/i;
 const DIRECTIVES = new Set([
   "org", "equ", "defl", "db", "defb", "byte", "defm", "dm", "dz", "dc", "dw", "defw", "word",
   "ds", "defs", "block", "align", "end", "ent", "macro", "endm", "endmacro", "local",
-  "if", "ifdef", "ifndef", "ifidn", "ifdif", "else", "elseif", "endif", "include", "error",
+  "if", "ifdef", "ifndef", "ifidn", "ifdif", "else", "elseif", "endif", "include", "incbin", "error",
   "rept", "dup", "repeat", "endr", "edup", "endrepeat", "aseg", "title", "subttl", "eject", "page", "device", "z80",
 ]);
 const IGNORED = new Set(["aseg", "title", "subttl", "eject", "page", "device", "z80"]);
@@ -735,6 +737,9 @@ class Assembler {
       case "include":
         this.include(text, s, e);
         return;
+      case "incbin":
+        this.incbin(text, s, e);
+        return;
       case "error": {
         let msg = text.slice(s, e);
         const c = text.charCodeAt(s);
@@ -766,6 +771,28 @@ class Assembler {
     this.runLines(splitLines(src), path);
     this.includeDepth--;
     this.siteLine = saveLine;
+  }
+
+  /** INCBIN "fichero"[, desplazamiento[, longitud]]: vuelca los bytes tal cual. */
+  incbin(text: string, s: number, e: number): void {
+    const parts = splitArgs(text, s, e);
+    if (parts.length > 6) { this.report(s, "INCBIN admite como mucho 3 argumentos"); return; }
+    const ps = parts[0]!, pe = parts[1]!;
+    if (ps >= pe) { this.report(s, "falta el nombre del fichero"); return; }
+    let path = text.slice(ps, pe);
+    const c = text.charCodeAt(ps);
+    if (c === 39 || c === 34) path = String.fromCharCode(...parseString(text, ps, pe).bytes);
+    if (!this.opts.incbin) { this.report(s, "INCBIN no disponible (no hay resolvedor de ficheros)"); return; }
+    let data: Uint8Array | undefined;
+    try { data = this.opts.incbin(path, this.siteFile); } catch (err) { this.report(s, err instanceof Error ? err.message : String(err)); return; }
+    if (data === undefined) { this.report(s, `no se encuentra el fichero '${path}'`); return; }
+    const off = parts.length >= 4 ? this.p1Value(text, parts[2]!, parts[3]!) : 0;
+    const len = parts.length >= 6 ? this.p1Value(text, parts[4]!, parts[5]!) : data.length - off;
+    if (off < 0 || len < 0 || off + len > data.length) {
+      this.report(s, `INCBIN fuera de rango: '${path}' tiene ${data.length} bytes (desplazamiento ${off}, longitud ${len})`);
+      return;
+    }
+    for (let k = 0; k < len; k++) this.emit(data[off + k]!);
   }
 
   dataBytes(lop: string, text: string, s: number, e: number): void {

@@ -148,7 +148,7 @@ export class TabsEditor {
   private lint(tab: Tab, state: EditorState): Diagnostic[] {
     const k = kindOf(tab.name);
     if (k === "asm") {
-      const errs = assemble(state.doc.toString(), { include: (p) => this.textOf(p) ?? clibResolve(p) }).errors;
+      const errs = assemble(state.doc.toString(), { include: (p) => this.textOf(p) ?? clibResolve(p), incbin: (p) => this.model.binOf(p) }).errors;
       return toDiagnostics(state.doc, errs);
     }
     // C: se compila el programa al que pertenece la pestaña (ella si tiene main; si no, la principal).

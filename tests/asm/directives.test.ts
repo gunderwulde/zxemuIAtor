@@ -284,6 +284,30 @@ describe("INCLUDE", () => {
   });
 });
 
+describe("INCBIN", () => {
+  const files: Record<string, Uint8Array> = { "g.bin": Uint8Array.from([1, 2, 3, 4, 5]) };
+  const opts = { incbin: (p: string) => files[p] };
+  const run = (src: string) => asm(src, opts);
+
+  it("vuelca el fichero entero y avanza el PC", () => {
+    const r = run(" org 8000h\n incbin \"g.bin\"\nend: nop\n");
+    expect([...r.segments[0]!.bytes]).toEqual([1, 2, 3, 4, 5, 0]);
+    expect(r.symbols.get("end")).toBe(0x8005);
+  });
+
+  it("admite desplazamiento y longitud (con expresiones)", () => {
+    expect([...run(" org 8000h\n incbin \"g.bin\", 2\n").segments[0]!.bytes]).toEqual([3, 4, 5]);
+    expect([...run("N equ 1\n org 8000h\n incbin \"g.bin\", N+1, 2\n").segments[0]!.bytes]).toEqual([3, 4]);
+  });
+
+  it("informa de fichero inexistente, rango inválido y falta de resolvedor", () => {
+    expect(errorsOf(run(" incbin \"no.bin\"\n"))).toHaveLength(1);
+    expect(errorsOf(run(" incbin \"g.bin\", 3, 9\n"))).toHaveLength(1);
+    expect(errorsOf(run(" incbin \"g.bin\", -1\n"))).toHaveLength(1);
+    expect(errorsOf(asm(" incbin \"g.bin\"\n"))).toHaveLength(1);
+  });
+});
+
 describe("saltos relativos", () => {
   it("límites exactos de JR y DJNZ", () => {
     // Destino = dirección siguiente + e, con e en -128..127.
