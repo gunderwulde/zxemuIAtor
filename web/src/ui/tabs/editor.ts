@@ -408,6 +408,7 @@ export class TabsEditor {
     const m = this.model;
     bar.replaceChildren();
     bar.setAttribute("role", "tablist");
+    bar.setAttribute("aria-orientation", "vertical");
     for (const t of m.tabs) {
       const el = document.createElement("div");
       el.className = "tab" + (t.ro ? ` tab-ro tab-${t.ro}` : "");
@@ -469,8 +470,8 @@ export class TabsEditor {
       if (!el || (e.target as HTMLElement).closest("input")) return;
       const id = idOf(el);
       const i = this.model.indexOf(id);
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        const d = e.key === "ArrowLeft" ? -1 : 1;
+      if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const d = e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1;
         e.preventDefault();
         if (e.altKey && e.shiftKey) { this.move(id, i + d); this.focusTab(id); return; }
         const t = this.model.tabs[(i + d + this.model.tabs.length) % this.model.tabs.length]!;
@@ -501,7 +502,7 @@ export class TabsEditor {
       this.dragId = null;
       if (!el) { this.move(id, this.model.tabs.length); return; }
       const r = el.getBoundingClientRect();
-      let to = this.model.indexOf(idOf(el)) + (e.clientX > r.left + r.width / 2 ? 1 : 0);
+      let to = this.model.indexOf(idOf(el)) + (e.clientY > r.top + r.height / 2 ? 1 : 0);
       if (this.model.indexOf(id) < to) to--;
       this.move(id, to);
     });

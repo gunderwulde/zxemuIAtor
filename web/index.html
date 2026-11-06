@@ -19,16 +19,22 @@
           <button id="asm-debug" type="button" disabled title="Construir, inyectar y parar con el depurador abierto: en la entrada (.asm) o en main (.c). F7 paso, F8 por encima, F6 paso C, F5 continuar, F9 breakpoint">Depurar</button>
           <button id="asm-export-tap" type="button" title="Construir y descargar un .tap con cargador BASIC (LOAD &quot;&quot;)">Exportar TAP</button>
         </header>
-        <div class="tabbar">
-          <div id="tabs" class="tabs" aria-label="Ficheros"></div>
-          <select id="tab-new" aria-label="Nueva pestaña" title="Nueva pestaña">
-            <option value="">＋</option>
-            <option value="asm">Nuevo .asm</option>
-            <option value="c">Nuevo .c</option>
-            <option value="h">Nuevo .h</option>
-          </select>
+        <div class="workarea" id="workarea">
+          <aside id="files" class="files" aria-label="Ficheros abiertos">
+            <div class="files-head">
+              <button id="files-toggle" type="button" aria-expanded="true" aria-controls="files-body" title="Mostrar u ocultar la lista de ficheros (Ctrl+B)">☰</button>
+              <strong class="files-title">Ficheros</strong>
+              <select id="tab-new" aria-label="Nueva pestaña" title="Nuevo fichero, recurso o proyecto">
+                <option value="">＋</option>
+                <option value="asm">Nuevo .asm</option>
+                <option value="c">Nuevo .c</option>
+                <option value="h">Nuevo .h</option>
+              </select>
+            </div>
+            <div id="files-body" class="files-body"><div id="tabs" class="tabs" aria-label="Ficheros"></div></div>
+          </aside>
+          <div id="editor" class="editor-host"></div>
         </div>
-        <div id="editor" class="editor-host"></div>
         <!-- Fase 2 (D1): registros, desensamblado, memoria y breakpoints. -->
         <div id="debugger" class="debugger-host" hidden></div>
         <pre id="asm-log" class="log" aria-live="polite"></pre>

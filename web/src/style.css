@@ -80,17 +80,28 @@ button[aria-pressed="true"] { background: #3a3520; border-color: var(--accent); 
 .log:empty { display: none; }
 
 /* ---- Pestañas (U1) ---- */
-.tabbar { display: flex; align-items: stretch; background: var(--panel-2); border-bottom: 1px solid var(--line); min-height: 30px; }
-.tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.workarea { flex: 1; display: flex; min-height: 0; }
+.workarea > .editor-host { flex: 1; min-width: 0; }
+.files { display: flex; flex-direction: column; flex: none; width: var(--files-w, 190px); min-height: 0; background: var(--panel-2); border-right: 1px solid var(--line); }
+.files-head { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-bottom: 1px solid var(--line); min-height: 30px; }
+.files-title { flex: 1; font-size: 12px; color: var(--muted); font-weight: 600; }
+#files-toggle { padding: 1px 7px; border: none; background: none; color: var(--muted); }
+#files-toggle:hover:not(:disabled) { color: var(--text); }
+.files-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+/* Colapsada: sólo queda la tira con el botón. */
+.files.collapsed { width: 30px; }
+.files.collapsed .files-title, .files.collapsed #tab-new, .files.collapsed .files-body { display: none; }
+.files.collapsed .files-head { flex-direction: column; border-bottom: none; padding-top: 4px; }
+.tabs { display: flex; flex-direction: column; }
 .tab {
-  display: flex; align-items: center; gap: 4px; flex: none;
-  padding: 0 4px 0 10px; border-right: 1px solid var(--line);
+  display: flex; align-items: center; gap: 4px; flex: none; min-height: 26px;
+  padding: 0 4px 0 8px; border-left: 2px solid transparent;
   color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap;
   font: 12px ui-monospace, "Cascadia Code", Consolas, monospace;
-  border-top: 2px solid transparent;
 }
+.tab-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tab:hover { color: var(--text); }
-.tab[aria-selected="true"] { background: var(--panel); color: var(--text); border-top-color: var(--accent); }
+.tab[aria-selected="true"] { background: var(--panel); color: var(--text); border-left-color: var(--accent); }
 .tab:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
 .tab.dragging { opacity: 0.5; }
 .tab-ro .tab-name { font-style: italic; }
@@ -98,7 +109,7 @@ button[aria-pressed="true"] { background: #3a3520; border-color: var(--accent); 
 .tab-x { padding: 0 5px; border: none; background: none; color: inherit; line-height: 1; border-radius: 3px; opacity: 0.6; }
 .tab-x:hover:not(:disabled) { opacity: 1; background: #2b2f37; }
 .tab-rename { width: auto; font: inherit; background: #2b2f37; color: var(--text); border: 1px solid var(--accent-2); border-radius: 3px; padding: 0 3px; }
-#tab-new { border: none; border-left: 1px solid var(--line); border-radius: 0; background: var(--panel-2); padding: 0 8px; flex: none; }
+#tab-new { flex: none; max-width: 90px; }
 
 /* ---- Emulador ---- */
 .screen-wrap {

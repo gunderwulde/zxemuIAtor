@@ -68,6 +68,20 @@ const tabs = new TabsEditor({
   onBpsChanged: () => dbgUi?.syncSourceBps(),
   onSwitch: () => dbgUi?.showCurrent(),
 });
+// Lista de ficheros colapsable (Ctrl+B); el estado se recuerda.
+{
+  const files = $("files"), btn = $("files-toggle");
+  const set = (open: boolean) => {
+    files.classList.toggle("collapsed", !open);
+    btn.setAttribute("aria-expanded", String(open));
+    savePref("zx.filesOpen", open ? "1" : "0");
+  };
+  if (loadPref("zx.filesOpen") === "0") set(false);
+  btn.onclick = () => set(files.classList.contains("collapsed"));
+  addEventListener("keydown", (e) => {
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") { e.preventDefault(); btn.click(); }
+  });
+}
 // Si se cierra la página antes del guardado diferido (salvo al sustituir el espacio de trabajo).
 let replacing = false;
 addEventListener("pagehide", () => { if (!replacing) tabs.save(); });
