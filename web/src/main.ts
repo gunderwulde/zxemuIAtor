@@ -9,7 +9,8 @@ import { initSplitter, loadPref, savePref } from "./ui/layout";
 import { DEFAULT_EXAMPLE, EXAMPLES } from "./ui/editor/examples";
 import type { RunMessage } from "./ui/run";
 import { CLIB_FILES, C_EXAMPLES, DEFAULT_C_EXAMPLE } from "./clib";
-import { TabsEditor, buildAndRun, buildProject, buildTapFor, isTape, mountTabsDebugger, type TabKind, type TabsDebugger } from "./ui/tabs";
+import { TABS_KEY, TabsEditor, buildAndRun, buildProject, buildTapFor, isTape, mountTabsDebugger, type TabKind, type TabsDebugger } from "./ui/tabs";
+import { projectExamples, projectWorkspace, parseProject } from "./ui/tabs/projects";
 import { startTape } from "./ui/tape-run";
 import { downloadBytes, stampedName } from "./export";
 import { registerBuiltinResources } from "./ui/res";
@@ -67,8 +68,20 @@ const tabs = new TabsEditor({
   onBpsChanged: () => dbgUi?.syncSourceBps(),
   onSwitch: () => dbgUi?.showCurrent(),
 });
-// Si se cierra la página antes del guardado diferido.
-addEventListener("pagehide", () => tabs.save());
+// Si se cierra la página antes del guardado diferido (salvo al sustituir el espacio de trabajo).
+let replacing = false;
+addEventListener("pagehide", () => { if (!replacing) tabs.save(); });
+
+/** Sustituye todo el espacio de trabajo por `saved` (copia de seguridad del actual) y recarga. */
+function replaceWorkspace(saved: string, what: string): void {
+  if (!confirm(`Abrir ${what} sustituye todas tus pestañas. Se guarda una copia de seguridad de las actuales ` +
+    `(clave zx.tabs.backup del almacenamiento local). ¿Continuar?`)) return;
+  tabs.flush();
+  savePref("zx.tabs.backup", tabs.model.serialize());
+  savePref(TABS_KEY, saved);
+  replacing = true;
+  location.reload();
+}
 
 /** Lo que se ejecuta: la pestaña activa si es un programa; si no, la principal. */
 function runTarget() {
@@ -89,7 +102,27 @@ const exSel = $<HTMLSelectElement>("asm-example");
     for (const ex of list) g.append(new Option(ex.title, `${kind}:${ex.id}`));
     exSel.append(g);
   }
+  // Proyectos completos (varios ficheros y recursos): se cargan sólo al elegirlos.
+  const projects = projectExamples(import.meta.glob("./examples/*/project.json", { query: "?raw", import: "default", eager: true }) as Record<string, string>);
+  const projectFiles = import.meta.glob("./examples/*/*", { query: "?raw", import: "default" }) as Record<string, () => Promise<string>>;
+  if (projects.length > 0) {
+    const g = document.createElement("optgroup");
+    g.label = "Proyectos";
+    for (const p of projects) g.append(new Option(p.title, `prj:${p.id}`));
+    exSel.append(g);
+  }
   exSel.onchange = () => {
+    if (exSel.value.startsWith("prj:")) {
+      const p = projects.find((x) => `prj:${x.id}` === exSel.value);
+      exSel.value = "";
+      if (p) {
+        const mine = Object.entries(projectFiles).filter(([k]) => k.includes(`/${p.id}/`));
+        void Promise.all(mine.map(async ([k, load]) => [k, await load()] as const)).then((all) => {
+          replaceWorkspace(projectWorkspace(p.id, Object.fromEntries(all)), `el proyecto «${p.title}»`);
+        }, (e: unknown) => say(`No se pudo abrir el proyecto: ${e instanceof Error ? e.message : String(e)}`));
+      }
+      return;
+    }
     const [kind, id] = exSel.value.split(":") as ["asm" | "c", string];
     exSel.value = "";
     const ex = (kind === "asm" ? EXAMPLES : C_EXAMPLES).find((e) => e.id === id);
@@ -108,10 +141,24 @@ libSel.onchange = () => {
 };
 const newSel = $<HTMLSelectElement>("tab-new");
 for (const r of resourceKinds()) newSel.append(new Option(`Nueva ${r.label.toLowerCase()} .${r.ext}`, `res:${r.ext}`));
+newSel.append(new Option("Exportar proyecto .zxproj", "zxproj:export"), new Option("Importar proyecto .zxproj…", "zxproj:import"));
 newSel.onchange = () => {
   const v = newSel.value;
   newSel.value = "";
-  if (v.startsWith("res:")) tabs.newResource(v.slice(4));
+  if (v === "zxproj:export") {
+    tabs.flush();
+    const name = tabs.model.main?.name.replace(/\.[^.]*$/, "") ?? "proyecto";
+    downloadBytes(new TextEncoder().encode(tabs.model.serialize()), stampedName(name, "zxproj", new Date()));
+  } else if (v === "zxproj:import") {
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = ".zxproj,application/json";
+    inp.onchange = () => void inp.files?.[0]?.text().then((raw) => {
+      if (!parseProject(raw)) say("El fichero no es un proyecto .zxproj válido.");
+      else replaceWorkspace(raw, `el proyecto «${inp.files![0]!.name}»`);
+    });
+    inp.click();
+  } else if (v.startsWith("res:")) tabs.newResource(v.slice(4));
   else if (v) tabs.newTab(v as TabKind);
 };
 
