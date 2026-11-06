@@ -15,6 +15,15 @@ Código: `web/src/res/` (TS puro: registro, formatos y conversiones) y `web/src/
 de atributos (`FLASH|BRIGHT|PAPER<<3|INK`). Es el formato de `SCREEN$` y de `LOAD "" SCREEN$`.
 Documento: `{"v":1,"scr":"<base64 de los 6912 bytes>"}`.
 
+Salidas para el código (`INCBIN "titulo.scr"` es la pantalla entera):
+
+| Fuente | Contenido |
+|---|---|
+| `INCBIN "t.scr#pixels"` | Los 6144 bytes de bitmap. |
+| `INCBIN "t.scr#attrs"` | Los 768 de atributos. |
+| `INCBIN "t.scr#top"` | Dos tercios de arriba: 4096 de bitmap y 512 de atributos (filas 0–15), seguidos. Un fondo de 128 líneas. |
+| `INCBIN "t.scr#bottom"` | Tercio de abajo: 2048 de bitmap y 256 de atributos (filas 16–23), seguidos. Un marco de marcadores. |
+
 Importar una imagen (PNG, JPG, GIF…) la convierte así:
 
 1. Se encaja en 256×192: ajustar con barras negras, rellenar recortando o estirar. La

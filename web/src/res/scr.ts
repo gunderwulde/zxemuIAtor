@@ -181,4 +181,14 @@ export const scrResource: ResourceKind = {
     try { decodeScrDoc(text); return null; } catch (e) { return (e as Error).message; }
   },
   toBin: decodeScrDoc,
+  // Trozos de pantalla que los juegos guardan por separado. `top`: los dos tercios de
+  // arriba (4096 B de bitmap) y sus 16 filas de atributos (512 B), juntos y en ese orden;
+  // `bottom`: el tercio de abajo (2048 B) y sus 8 filas (256 B). Así un fondo de 128
+  // líneas y un marco de marcadores son un solo INCBIN cada uno.
+  parts: {
+    pixels: (t) => decodeScrDoc(t).subarray(0, BITMAP_SIZE),
+    attrs: (t) => decodeScrDoc(t).subarray(BITMAP_SIZE),
+    top: (t) => { const s = decodeScrDoc(t); return Uint8Array.from([...s.subarray(0, 4096), ...s.subarray(BITMAP_SIZE, BITMAP_SIZE + 512)]); },
+    bottom: (t) => { const s = decodeScrDoc(t); return Uint8Array.from([...s.subarray(4096, BITMAP_SIZE), ...s.subarray(BITMAP_SIZE + 512)]); },
+  },
 };

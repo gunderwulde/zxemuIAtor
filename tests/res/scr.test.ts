@@ -114,6 +114,20 @@ describe("documento .scr", () => {
     expect(scrResource.check(scrResource.template())).toBeNull();
     expect(scrResource.toBin(scrResource.template())).toEqual(emptyScr());
   });
+  it("partes: pixels, attrs, top (4096+512) y bottom (2048+256) con los desplazamientos del hardware", () => {
+    const s = emptyScr();
+    s[0] = 1; s[4095] = 2;                       // primer y último byte de los dos tercios de arriba
+    s[4096] = 3; s[6143] = 4;                    // tercio de abajo
+    s[6144] = 5; s[6144 + 511] = 6;              // atributos de las filas 0–15
+    s[6144 + 512] = 7; s[6911] = 8;              // atributos de las filas 16–23
+    const doc = encodeScrDoc(s);
+    const p = scrResource.parts!;
+    expect(p.pixels!(doc).length).toBe(6144);
+    expect(p.attrs!(doc)).toEqual(s.subarray(6144));
+    const top = p.top!(doc), bottom = p.bottom!(doc);
+    expect([top.length, top[0], top[4095], top[4096], top[4607]]).toEqual([4608, 1, 2, 5, 6]);
+    expect([bottom.length, bottom[0], bottom[2047], bottom[2048], bottom[2303]]).toEqual([2304, 3, 4, 7, 8]);
+  });
   it("mensajes para documentos inválidos", () => {
     expect(scrResource.check("basura")).toContain("JSON");
     expect(scrResource.check('{"v":2}')).toContain("desconocido");
