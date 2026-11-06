@@ -16,6 +16,8 @@ export class Preprocessor {
   readonly macros = new Map<string, Macro>();
   private once = new Set<string>();
   readonly links: { name: string; from: Token }[] = [];
+  /** `#pragma org N`: dirección del programa (la primera que se vea). */
+  org: number | undefined;
   private linkSeen = new Set<string>();
 
   constructor(private resolve: Resolver, readonly diags: Diag[]) {
@@ -132,6 +134,11 @@ export class Preprocessor {
             if (!a || a.k !== "str") { this.err(p, "#pragma link espera \"fichero\""); break; }
             const f = String.fromCharCode(...a.bytes!);
             if (!this.linkSeen.has(f)) { this.linkSeen.add(f); this.links.push({ name: f, from: a }); }
+          }
+          else if (p?.v === "org") {
+            const a = line[2];
+            if (!a || a.k !== "num" || a.n === undefined || a.n < 0 || a.n > 0xffff) { this.err(p, "#pragma org espera una dirección 0..65535"); break; }
+            this.org ??= a.n;
           }
           // Otros #pragma se ignoran (C99 6.10.6).
           break;

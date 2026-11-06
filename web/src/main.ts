@@ -10,7 +10,7 @@ import { DEFAULT_EXAMPLE, EXAMPLES } from "./ui/editor/examples";
 import type { RunMessage } from "./ui/run";
 import { CLIB_FILES, C_EXAMPLES, DEFAULT_C_EXAMPLE } from "./clib";
 import { TABS_KEY, TabsEditor, buildAndRun, buildProject, buildTapFor, isTape, mountTabsDebugger, type TabKind, type TabsDebugger } from "./ui/tabs";
-import { projectExamples, projectWorkspace, parseProject } from "./ui/tabs/projects";
+import { projectDirs, projectExamples, projectWorkspace, parseProject } from "./ui/tabs/projects";
 import { startTape } from "./ui/tape-run";
 import { downloadBytes, stampedName } from "./export";
 import { registerBuiltinResources } from "./ui/res";
@@ -117,7 +117,8 @@ const exSel = $<HTMLSelectElement>("asm-example");
     exSel.append(g);
   }
   // Proyectos completos (varios ficheros y recursos): se cargan sólo al elegirlos.
-  const projects = projectExamples(import.meta.glob("./examples/*/project.json", { query: "?raw", import: "default", eager: true }) as Record<string, string>);
+  const projectManifests = import.meta.glob("./examples/*/project.json", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+  const projects = projectExamples(projectManifests);
   const projectFiles = import.meta.glob("./examples/*/*", { query: "?raw", import: "default" }) as Record<string, () => Promise<string>>;
   if (projects.length > 0) {
     const g = document.createElement("optgroup");
@@ -130,7 +131,9 @@ const exSel = $<HTMLSelectElement>("asm-example");
       const p = projects.find((x) => `prj:${x.id}` === exSel.value);
       exSel.value = "";
       if (p) {
-        const mine = Object.entries(projectFiles).filter(([k]) => k.includes(`/${p.id}/`));
+        const man = projectManifests[Object.keys(projectManifests).find((k) => k.endsWith(`/${p.id}/project.json`))!]!;
+        const dirs = projectDirs(p.id, man);
+        const mine = Object.entries(projectFiles).filter(([k]) => dirs.some((d) => k.includes(`/${d}/`)));
         void Promise.all(mine.map(async ([k, load]) => [k, await load()] as const)).then((all) => {
           replaceWorkspace(projectWorkspace(p.id, Object.fromEntries(all)), `el proyecto «${p.title}»`);
         }, (e: unknown) => say(`No se pudo abrir el proyecto: ${e instanceof Error ? e.message : String(e)}`));

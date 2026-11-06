@@ -105,6 +105,32 @@ describe("buildProject", () => {
     expect([data[0], data[1], data[1 + 4095], data[1 + 4096], data[1 + 4607]]).toEqual([0xa5, 0x55, 0x66, 0x07, 0x38]);
   });
 
+  it("varias fuentes en un bloque (un .asm y un .c con #pragma org) y fill para los huecos", () => {
+    const m = model({
+      "a.asm": " org 8000h\n db 11h,22h\n",
+      "b.c": "#pragma org 0x8004\nint main(void) { return 0; }\n",
+      "t.tape": tapeText([{ type: "data", flag: 7, src: ["a.asm", "b.c"], addr: 0x8000, len: 6, fill: 0xee }]),
+    });
+    const r = buildProject(m, m.find("t.tape")!);
+    expect(r.messages.filter((x) => x.severity === "error")).toEqual([]);
+    const data = [...r.tap!].slice(3, -1);
+    expect(data.length).toBe(6);
+    expect(data.slice(0, 2)).toEqual([0x11, 0x22]);
+    expect(data.slice(2, 4)).toEqual([0xee, 0xee]);   // hueco entre las dos imágenes
+    expect(data[4]).not.toBe(0xee);                    // el crt0 del .c empieza en 8004h
+    expect(tapeSources(tapeText([{ type: "data", src: ["a.asm", "b.c"], addr: 1 }]))).toEqual(["a.asm", "b.c"]);
+  });
+
+  it("sin fill, un hueco dentro de len es un error", () => {
+    const m = model({
+      "a.asm": " org 8000h\n db 1\n org 8003h\n db 2\n",
+      "t.tape": tapeText([{ type: "data", src: "a.asm", addr: 0x8000, len: 4 }]),
+    });
+    const r = buildProject(m, m.find("t.tape")!);
+    expect(r.tap).toBeNull();
+    expect(r.messages.map((x) => x.text).join("\n")).toContain("no hay bytes ensamblados en 8001h");
+  });
+
   it("errores: fuente que no existe, dirección sin bytes, BASIC mal y error de ensamblado", () => {
     const m = model({
       "a.asm": " org 8000h\n db 1\n",

@@ -19,18 +19,28 @@ export function projectExamples(manifests: Record<string, string>): ProjectExamp
 }
 
 /**
+ * Directorios de ejemplos que hacen falta para abrir `id`: el suyo y los de las entradas
+ * "otro/fichero" de su manifiesto (ficheros compartidos con otro ejemplo).
+ */
+export function projectDirs(id: string, manifestText: string): string[] {
+  const man = JSON.parse(manifestText) as ProjectManifest;
+  return [...new Set([id, ...man.files.filter((e) => e.includes("/")).map((e) => e.slice(0, e.indexOf("/")))])];
+}
+
+/**
  * Espacio de trabajo (formato de TabsModel.serialize) de un ejemplo: `files` es ruta → contenido
- * de los ficheros del directorio del ejemplo, project.json incluido. Lanza si falta alguno.
+ * de los ficheros de su directorio (y de los compartidos), project.json incluido. Una entrada
+ * "otro/fichero" del manifiesto es la pestaña "fichero" tomada del ejemplo "otro". Lanza si falta alguno.
  */
 export function projectWorkspace(id: string, files: Record<string, string>): string {
   const key = Object.keys(files).find((k) => k.endsWith(`/${id}/project.json`));
   if (!key) throw new Error(`Ejemplo ${id}: falta project.json`);
-  const dir = key.slice(0, key.length - "project.json".length);
+  const root = key.slice(0, key.length - `${id}/project.json`.length);
   const man = JSON.parse(files[key]!) as ProjectManifest;
-  const tabs = man.files.map((name) => {
-    const text = files[dir + name];
-    if (text === undefined) throw new Error(`Ejemplo ${id}: falta ${name}`);
-    return { name, text };
+  const tabs = man.files.map((entry) => {
+    const text = files[root + (entry.includes("/") ? entry : `${id}/${entry}`)];
+    if (text === undefined) throw new Error(`Ejemplo ${id}: falta ${entry}`);
+    return { name: entry.slice(entry.lastIndexOf("/") + 1), text };
   });
   return JSON.stringify({ v: 1, tabs, active: man.active ?? man.main, main: man.main });
 }

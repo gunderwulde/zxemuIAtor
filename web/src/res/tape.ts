@@ -14,14 +14,19 @@
 //  data   Bloque sin cabecera (el que carga LD-BYTES con IX, DE, A = flag): sólo el flag y los datos.
 //
 // Los bytes de code/data son los que el ensamblado de `src` dejó desde `addr`: `len` bytes,
-// o, si no se da, el tramo contiguo que empieza en `addr`. Direcciones y flags son números
-// o cadenas ("0xAFC8", "AFC8h", "45000").
+// o, si no se da, el tramo contiguo que empieza en `addr`. `src` puede ser una lista de pestañas
+// (sus imágenes se mezclan: p. ej. recursos en un .asm y el programa en un .c) y `fill` el byte con que
+// se rellenan los huecos de las `len` bytes. Direcciones y flags son números o cadenas ("0xAFC8", "AFC8h", "45000").
 import type { ResourceKind } from "./registry";
 
 export interface BasicBlock { type: "basic"; name: string; source: string; autostart?: number }
-export interface CodeBlock { type: "code"; name: string; src: string; addr: number; len?: number; param2?: number }
-export interface DataBlock { type: "data"; flag: number; src: string; addr: number; len?: number }
+/** Fuente(s) de un bloque: una pestaña, o varias cuyas imágenes se mezclan (la última gana). */
+export type TapeSrc = string | string[];
+export interface CodeBlock { type: "code"; name: string; src: TapeSrc; addr: number; len?: number; param2?: number; fill?: number }
+export interface DataBlock { type: "data"; flag: number; src: TapeSrc; addr: number; len?: number; fill?: number }
 export type TapeBlock = BasicBlock | CodeBlock | DataBlock;
+
+export const blockSources = (b: CodeBlock | DataBlock): string[] => (typeof b.src === "string" ? [b.src] : b.src);
 export interface TapeDoc { v: 1; name: string; blocks: TapeBlock[] }
 
 export function parseNumber(v: unknown, what: string): number {
@@ -49,20 +54,26 @@ export function parseTapeDoc(text: string): TapeDoc {
     const b = raw as Record<string, unknown>;
     const at = `bloque ${i + 1}`;
     const str = (k: string) => { if (typeof b[k] !== "string" || b[k] === "") throw new Error(`${at}: falta «${k}»`); return b[k] as string; };
+    const srcs = (): TapeSrc => {
+      const v = b.src;
+      if (typeof v === "string" && v !== "") return v;
+      if (Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === "string" && x !== "")) return v as string[];
+      throw new Error(`${at}: falta «src» (una pestaña o una lista de pestañas)`);
+    };
     const opt = (k: string, lo: number, hi: number) => (b[k] === undefined ? undefined : inRange(parseNumber(b[k], `${at}: ${k}`), lo, hi, `${at}: ${k}`));
     if (b.type === "basic") {
       return { type: "basic", name: str("name"), source: str("source"), autostart: opt("autostart", 0, 9999) };
     }
     if (b.type === "code") {
       return {
-        type: "code", name: str("name"), src: str("src"), addr: inRange(parseNumber(b.addr, `${at}: addr`), 0, 0xffff, `${at}: addr`),
-        len: opt("len", 1, 0xfffd), param2: opt("param2", 0, 0xffff),
+        type: "code", name: str("name"), src: srcs(), addr: inRange(parseNumber(b.addr, `${at}: addr`), 0, 0xffff, `${at}: addr`),
+        len: opt("len", 1, 0xfffd), param2: opt("param2", 0, 0xffff), fill: opt("fill", 0, 255),
       };
     }
     if (b.type === "data") {
       return {
-        type: "data", flag: inRange(parseNumber(b.flag ?? 255, `${at}: flag`), 0, 255, `${at}: flag`), src: str("src"),
-        addr: inRange(parseNumber(b.addr, `${at}: addr`), 0, 0xffff, `${at}: addr`), len: opt("len", 1, 0xfffd),
+        type: "data", flag: inRange(parseNumber(b.flag ?? 255, `${at}: flag`), 0, 255, `${at}: flag`), src: srcs(),
+        addr: inRange(parseNumber(b.addr, `${at}: addr`), 0, 0xffff, `${at}: addr`), len: opt("len", 1, 0xfffd), fill: opt("fill", 0, 255),
       };
     }
     throw new Error(`${at}: tipo desconocido «${String(b.type)}» (basic, code o data)`);

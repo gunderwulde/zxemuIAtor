@@ -27,6 +27,8 @@ Opciones (`CcOptions`):
 | `peephole` | `true` | Optimizador de mirilla |
 | `onlyMain` | `false` | Compilar sólo `main` y lo que incluya/enlace |
 
+`#pragma org N` en un fichero fija la dirección del programa (si `opts.org` no la da; vale la primera que se encuentre).
+
 Resolución: `#include "x"` busca primero en `files` y luego en el resolver; `<x>` y
 `#pragma link "x"` primero en el resolver y luego en `files`. `#pragma link` de un `.c`
 lo compila; de un `.asm` lo copia en la sección de código.

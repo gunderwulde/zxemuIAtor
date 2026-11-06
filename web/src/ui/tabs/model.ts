@@ -13,7 +13,7 @@
 // entran, así que no chocan entre sí.
 
 import { resourceKindOf, resourceKinds, splitPart } from "../../res/registry";
-import { parseTapeDoc } from "../../res/tape";
+import { blockSources, parseTapeDoc } from "../../res/tape";
 
 export type TabKind = "asm" | "c" | "h";
 export type ReadOnlyKind = "gen" | "lib";
@@ -68,7 +68,7 @@ export function isTape(tab: Tab): boolean {
 
 /** Pestañas fuente (.asm/.c) que usa un manifiesto; vacío si el documento no es válido. */
 export function tapeSources(text: string): string[] {
-  try { return [...new Set(parseTapeDoc(text).blocks.flatMap((b) => (b.type === "basic" ? [] : [b.src])))]; } catch { return []; }
+  try { return [...new Set(parseTapeDoc(text).blocks.flatMap((b) => (b.type === "basic" ? [] : blockSources(b))))]; } catch { return []; }
 }
 
 export function isRunnable(tab: Tab): boolean {

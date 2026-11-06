@@ -152,6 +152,16 @@ describe("tipos y declaraciones", () => {
 });
 
 describe("errores con línea y columna", () => {
+  it("#pragma org fija la dirección; opts.org tiene prioridad; un valor malo es un error", () => {
+    const org = (src: string, o?: number) => /^\s+org (\d+)/m.exec(compile(new Map([["main.c", src]]), { main: "main.c", org: o }).asm)?.[1];
+    const main = "int main(void) { return 0; }\n";
+    expect(org("#pragma org 0xEA60\n" + main)).toBe("60000");
+    expect(org("#pragma org 0xEA60\n" + main, 0x9000)).toBe("36864");
+    expect(org(main)).toBe("32768");
+    const bad = compile(new Map([["main.c", "#pragma org 70000\n" + main]]), { main: "main.c" });
+    expect(bad.errors.map((e) => e.msg)).toEqual(["#pragma org espera una dirección 0..65535"]);
+  });
+
   const errs = (src: string) => compile(new Map([["main.c", src]]), { main: "main.c" }).errors.filter((e) => e.severity === "error").map((e) => `${e.line}:${e.col}: ${e.msg}`);
   const warns = (src: string) => compile(new Map([["main.c", src]]), { main: "main.c" }).errors.filter((e) => e.severity === "warning").map((e) => `${e.line}:${e.col}: ${e.msg}`);
 

@@ -57,6 +57,7 @@ export function compile(files: Map<string, string>, opts: CcOptions): CcResult {
   seen.add(opts.main);
   if (!opts.onlyMain) for (const [n, t] of files) if (/\.c$/i.test(n) && !seen.has(n)) { queue.push({ name: n, text: t }); seen.add(n); }
   const linkedAsm: { name: string; text: string }[] = [];
+  let pragmaOrg: number | undefined;
 
   const resolveTracked = (n: string, from: string, angle: boolean) => {
     const r = resolve(n, from, angle);
@@ -72,6 +73,7 @@ export function compile(files: Map<string, string>, opts: CcOptions): CcResult {
     const last = toks[toks.length - 1];
     toks.push({ k: "eof", v: "", file: u.name, line: (last?.line ?? 1) + 1, col: 1, bol: true });
     parseFile(toks, fi, prog, diags);
+    pragmaOrg ??= pp.org;
     for (const l of pp.links) {
       if (seen.has(l.name)) continue;
       seen.add(l.name);
@@ -156,7 +158,7 @@ export function compile(files: Map<string, string>, opts: CcOptions): CcResult {
   const strs: string[] = [];
   for (const s of gen.stringOrder) strs.push(`${s.label}:`, ...dbLines([...s.bytes, 0]));
 
-  const org = opts.org ?? 0x8000;
+  const org = opts.org ?? pragmaOrg ?? 0x8000;
   const out: string[] = [
     `; Generado por el compilador de C de zxemuIAtor (K1). ABI: docs/c-abi.md`,
     `        org ${org}`,

@@ -7,7 +7,7 @@
 import { assemble, type AsmResult } from "../../asm";
 import { tokenizeBasic } from "../../export/basic";
 import { header, tapBlock, TYPE_CODE, TYPE_PROGRAM } from "../../export/tap";
-import { parseTapeDoc, type TapeDoc } from "../../res/tape";
+import { blockSources, parseTapeDoc, type TapeDoc } from "../../res/tape";
 import type { RunMessage } from "../run";
 import { finish, prepare, type TabDiag } from "./build";
 import { isTape, kindOf, tapeSources, type Tab, type TabsModel } from "./model";
@@ -30,14 +30,17 @@ export interface ProjectBuild {
 
 const h4 = (n: number) => n.toString(16).toUpperCase().padStart(4, "0");
 
-/** Bytes de la imagen del ensamblado desde `addr`: `len` o el tramo contiguo; null y motivo si faltan. */
-function imageBytes(asm: AsmResult, addr: number, len: number | undefined): { bytes: number[] } | { error: string } {
+/**
+ * Bytes de las imágenes de los ensamblados desde `addr`: `len` o el tramo contiguo. Con varias
+ * fuentes se mezclan (la última gana). Con `fill`, los huecos dentro de `len` valen `fill`.
+ */
+function imageBytes(asms: AsmResult[], addr: number, len: number | undefined, fill: number | undefined): { bytes: number[] } | { error: string } {
   const mem = new Map<number, number>();
-  for (const s of asm.segments) s.bytes.forEach((b, i) => mem.set((s.addr + i) & 0xffff, b));
+  for (const asm of asms) for (const s of asm.segments) s.bytes.forEach((b, i) => mem.set((s.addr + i) & 0xffff, b));
   const out: number[] = [];
   for (let a = addr; len === undefined ? mem.has(a & 0xffff) : out.length < len; a++) {
     if (a > 0xffff) return { error: `${h4(addr)}h + ${out.length} se sale de la memoria` };
-    const b = mem.get(a);
+    const b = mem.get(a) ?? (len !== undefined ? fill : undefined);
     if (b === undefined) return { error: `no hay bytes ensamblados en ${h4(a)}h (se pedían ${len ?? "los contiguos"} desde ${h4(addr)}h)` };
     out.push(b);
   }
@@ -93,15 +96,16 @@ export function buildProject(model: TabsModel, tape: Tab): ProjectBuild {
       bytesTotal += r.bytes.length;
       return;
     }
-    const img = imageBytes(res.asm.get(b.src)!, b.addr, b.len);
-    if ("error" in img) { messages.push({ severity: "error", text: `${tape.name}: bloque ${n} (${b.src}): ${img.error}` }); failed = true; return; }
+    const srcs = blockSources(b);
+    const img = imageBytes(srcs.map((x) => res.asm.get(x)!), b.addr, b.len, b.fill);
+    if ("error" in img) { messages.push({ severity: "error", text: `${tape.name}: bloque ${n} (${srcs.join(" + ")}): ${img.error}` }); failed = true; return; }
     if (b.type === "code") {
       tap.push(...tapBlock(0x00, header(TYPE_CODE, b.name, img.bytes.length, b.addr, b.param2 ?? 0x8000)));
       tap.push(...tapBlock(0xff, img.bytes));
       res.blocks.push({ index: n, desc: `CODE «${b.name}» en ${h4(b.addr)}h`, flag: 0xff, len: img.bytes.length });
     } else {
       tap.push(...tapBlock(b.flag, img.bytes));
-      res.blocks.push({ index: n, desc: `datos sin cabecera de ${b.src} desde ${h4(b.addr)}h`, flag: b.flag, len: img.bytes.length });
+      res.blocks.push({ index: n, desc: `datos sin cabecera de ${srcs.join(" + ")} desde ${h4(b.addr)}h`, flag: b.flag, len: img.bytes.length });
     }
     bytesTotal += img.bytes.length;
   });

@@ -6,7 +6,7 @@ import { registerResource, unregisterResource } from "../../../web/src/res/regis
 import { scrResource } from "../../../web/src/res/scr";
 import { tilesResource } from "../../../web/src/res/tiles";
 import { tapeResource } from "../../../web/src/res/tape";
-import { parseProject, projectExamples, projectWorkspace } from "../../../web/src/ui/tabs/projects";
+import { parseProject, projectDirs, projectExamples, projectWorkspace } from "../../../web/src/ui/tabs/projects";
 import { ROOT } from "../../util/wasm";
 
 beforeAll(() => { registerResource(scrResource); registerResource(tilesResource); registerResource(tapeResource); });
@@ -39,14 +39,26 @@ describe("projectExamples / projectWorkspace", () => {
     expect(parseProject(JSON.stringify({ v: 2, tabs: [] }))).toBeNull();
   });
 
+  it("una entrada otro/fichero toma el fichero de otro ejemplo", () => {
+    const m = man({ files: ["a.asm", "otro/b.asm"] });
+    const files = { "./examples/x/project.json": m, "./examples/x/a.asm": " nop", "./examples/otro/b.asm": " ret" };
+    expect(projectDirs("x", m)).toEqual(["x", "otro"]);
+    expect(parseProject(projectWorkspace("x", files))!.user.map((t) => t.name)).toEqual(["a.asm", "b.asm"]);
+    expect(() => projectWorkspace("x", { ...files, "./examples/otro/b.asm": undefined as unknown as string })).toThrow("falta otro/b.asm");
+  });
+
   it("todos los ejemplos del repositorio se montan completos", () => {
     const base = join(ROOT, "web", "src", "examples");
+    const files: Record<string, string> = {};
+    for (const id of readdirSync(base)) for (const n of readdirSync(join(base, id))) files[`./examples/${id}/${n}`] = readFileSync(join(base, id, n), "utf8");
     for (const id of readdirSync(base)) {
-      const files: Record<string, string> = {};
-      for (const n of readdirSync(join(base, id))) files[`./examples/${id}/${n}`] = readFileSync(join(base, id, n), "utf8");
+      const own = readdirSync(join(base, id)).filter((n) => n !== "project.json");
       const m = parseProject(projectWorkspace(id, files))!;
       expect(m, id).not.toBeNull();
-      expect(m.user.length, id).toBe(Object.keys(files).length - 1);
+      const listed = (JSON.parse(files[`./examples/${id}/project.json`]!) as { files: string[] }).files;
+      expect(m.user.length, id).toBe(listed.length);
+      // Todo fichero propio está en la lista (los compartidos de otros ejemplos son opcionales).
+      expect(own.filter((n) => !listed.includes(n)), id).toEqual([]);
     }
   });
 });
