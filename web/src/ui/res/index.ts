@@ -4,6 +4,8 @@
 import { registerResource } from "../../res/registry";
 import { scrResource } from "../../res/scr";
 import { tilesResource } from "../../res/tiles";
+import { mapResource } from "../../res/map";
+import { createMapEditor } from "./map-editor";
 import { createScrEditor } from "./scr-editor";
 import { createTilesEditor } from "./tiles-editor";
 
@@ -13,6 +15,10 @@ export interface ResourceIo {
   setText(text: string): void;
   /** Mensaje corto para el usuario. */
   say(text: string): void;
+  /** Nombres de las pestañas de usuario con esa extensión de recurso ("tiles"…). */
+  listTabs(ext: string): string[];
+  /** Texto de la pestaña de usuario con ese nombre, o undefined. */
+  textOf(name: string): string | undefined;
 }
 
 export interface ResourceEditor { destroy(): void }
@@ -36,4 +42,6 @@ export function registerBuiltinResources(): void {
   registerResourceEditor("scr", createScrEditor);
   registerResource(tilesResource);
   registerResourceEditor("tiles", createTilesEditor);
+  registerResource(mapResource);
+  registerResourceEditor("map", createMapEditor);
 }

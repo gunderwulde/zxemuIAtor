@@ -4,17 +4,18 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { assemble } from "../../../web/src/asm";
 import { registerResource, resourceKindOf, unregisterResource } from "../../../web/src/res/registry";
 import { emptyScr, encodeScrDoc, scrResource } from "../../../web/src/res/scr";
+import { mapResource, newMap, serializeMap } from "../../../web/src/res/map";
 import { newTileSet, serializeTileSet, tilesResource } from "../../../web/src/res/tiles";
 import { TabsModel, type Prefs } from "../../../web/src/ui/tabs/model";
 import { asmOptsFor } from "../../../web/src/ui/tabs/build";
 
-beforeAll(() => { registerResource(scrResource); registerResource(tilesResource); registerResource({
+beforeAll(() => { registerResource(scrResource); registerResource(tilesResource); registerResource(mapResource); registerResource({
   ext: "fake", label: "Fake",
   template: () => "[]",
   check: (t) => (/^\[[\d,]*\]$/.test(t) ? null : "no es una lista de bytes"),
   toBin: (t) => Uint8Array.from(JSON.parse(t) as number[]),
 }); });
-afterAll(() => { unregisterResource("fake"); unregisterResource("scr"); unregisterResource("tiles"); });
+afterAll(() => { unregisterResource("fake"); unregisterResource("scr"); unregisterResource("tiles"); unregisterResource("map"); });
 
 const prefs = (): Prefs => { const d = new Map<string, string>(); return { get: (k) => d.get(k) ?? null, set: (k, v) => { d.set(k, v); } }; };
 
@@ -71,6 +72,27 @@ describe("pestañas de recurso", () => {
     expect(r.errors).toEqual([]);
     // ld a,1 ; ld b,0 ; atributos 1,2,3,4 ; props 5
     expect([...r.segments[0]!.bytes]).toEqual([0x3e, 1, 0x06, 0, 1, 2, 3, 4, 5]);
+  });
+
+  it("INCBIN y INCLUDE de un mapa: celdas, #cols, #rle, #marks e #inc", () => {
+    const m = TabsModel.initial("", "");
+    const mp = newMap(3, 2, "a.tiles");
+    mp.data = [[1, 1, 2], [3, 3, 3]];
+    mp.marks = [{ k: 9, c: 2, r: 1 }];
+    m.add("lvl-1.map", serializeMap(mp));
+    const src = [
+      " org 8000h", ' include "lvl-1.map#inc"', " ld a, lvl_1_W", " ld b, lvl_1_RLE_BYTES",
+      ' incbin "lvl-1.map"', ' incbin "lvl-1.map#cols"', ' incbin "lvl-1.map#rle"', ' incbin "lvl-1.map#marks"', "",
+    ].join("\n");
+    const r = assemble(src, asmOptsFor(m));
+    expect(r.errors).toEqual([]);
+    expect([...r.segments[0]!.bytes]).toEqual([
+      0x3e, 3, 0x06, 6,
+      1, 1, 2, 3, 3, 3,       // filas
+      1, 3, 1, 3, 2, 3,       // columnas
+      2, 1, 1, 2, 3, 3,       // rle (cuenta, valor)
+      9, 2, 1,                // marcadores
+    ]);
   });
 
   it("una parte desconocida o '#inc' de un recurso sin constantes da error; no hay nombres con '#'", () => {

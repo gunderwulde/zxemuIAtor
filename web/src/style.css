@@ -245,3 +245,9 @@ button[aria-pressed="true"] { background: #3a3520; border-color: var(--accent); 
 .res-flag-name { flex: 1; }
 .res-field { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .res-field input[type=number] { width: 70px; }
+
+/* Editor de mapas */
+.res-map { display: flex; flex-direction: column; gap: 8px; padding: 10px; outline: none; }
+.res-map .res-canvas-wrap { max-height: 60vh; }
+.res-map .res-canvas { cursor: crosshair; }
+.res-bar button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }

@@ -74,6 +74,26 @@ con vuelta, duplicar/borrar/reordenar tiles (los índices cambian), deshacer (Ct
 **importar una hoja** de imagen: se corta en tiles del tamaño del conjunto, sin cambiar de
 escala, y se convierten con los mismos criterios que las pantallas.
 
+## `.map` — mapa de tiles
+
+Documento JSON `{"v":1,"w","h","tiles","data","marks"}`: `w`×`h` celdas (1–255 por lado), cada una el
+índice (0–255) de un tile del conjunto `.tiles` cuya pestaña nombra `tiles` (`""` = sin ligar), y
+hasta 255 **marcadores** `{k,c,r}` (tipo, columna, fila; uno por celda) para lo que el código coloca
+encima: enemigos, objetos, punto de inicio… El significado de `k` lo decide el código del usuario.
+
+| Fuente | Contenido |
+|---|---|
+| `INCBIN "lvl.map"` | Celdas fila a fila: `w`·`h` bytes. |
+| `INCBIN "lvl.map#cols"` | Celdas columna a columna (de arriba abajo, de izquierda a derecha), útil para scroll horizontal. |
+| `INCBIN "lvl.map#rle"` | Las celdas por filas comprimidas en pares (cuenta 1–255, valor). |
+| `INCBIN "lvl.map#marks"` | 3 bytes por marcador: tipo, columna, fila. |
+| `INCLUDE "lvl.map#inc"` | `lvl_W`, `lvl_H`, `lvl_CELLS`, `lvl_RLE_BYTES`, `lvl_MARKS`. |
+
+Editor: pincel (arrastrando; clic derecho recoge el tile de la celda), rectángulo, relleno,
+marcadores (clic izquierdo pone el tipo elegido, derecho lo quita), zoom ×1–×4, redimensionado
+(ancla arriba-izquierda, lo nuevo se rellena con el tile elegido) y deshacer (Ctrl+Z / Ctrl+Y). Avisa si
+el mapa usa índices que el conjunto ligado no tiene (celdas en rojo oscuro con su número).
+
 ## Añadir un tipo de recurso
 
 1. `registerResource({ ext, label, template, check, toBin, parts?, inc? })` en `web/src/res/` (`parts`: salidas `INCBIN "nombre.ext#parte"`; `inc`: constantes para `INCLUDE "nombre.ext#inc"`).

@@ -90,6 +90,8 @@ export class TabsEditor {
         getText: () => this.stateOf(tab).doc.toString(),
         setText: (text: string) => this.updateTab(tab, { changes: { from: 0, to: this.stateOf(tab).doc.length, insert: text } }),
         say: (t: string) => this.o.say(t),
+        listTabs: (e: string) => this.model.user.filter((t) => t.name.toLowerCase().endsWith("." + e)).map((t) => t.name),
+        textOf: (n: string) => { const o = this.model.find(n); return o && !o.ro ? this.stateOf(o).doc.toString() : undefined; },
       };
       this.pane = { id: tab.id, ext, el, ed: factory(el, io, tab.name) };
     }
