@@ -101,7 +101,7 @@ export class TabsModel {
   }
 
   /** Nombre libre "base.ext", "base2.ext", "base3.ext"… */
-  freeName(base: string, ext: TabKind): string {
+  freeName(base: string, ext: string): string {
     for (let i = 1; ; i++) {
       const n = `${base}${i === 1 ? "" : i}.${ext}`;
       if (!this.find(n)) return n;

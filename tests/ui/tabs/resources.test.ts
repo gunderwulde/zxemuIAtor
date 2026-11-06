@@ -3,16 +3,17 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { assemble } from "../../../web/src/asm";
 import { registerResource, resourceKindOf, unregisterResource } from "../../../web/src/res/registry";
+import { emptyScr, encodeScrDoc, scrResource } from "../../../web/src/res/scr";
 import { TabsModel, type Prefs } from "../../../web/src/ui/tabs/model";
 import { asmOptsFor } from "../../../web/src/ui/tabs/build";
 
-beforeAll(() => registerResource({
+beforeAll(() => { registerResource(scrResource); registerResource({
   ext: "fake", label: "Fake",
   template: () => "[]",
   check: (t) => (/^\[[\d,]*\]$/.test(t) ? null : "no es una lista de bytes"),
   toBin: (t) => Uint8Array.from(JSON.parse(t) as number[]),
-}));
-afterAll(() => unregisterResource("fake"));
+}); });
+afterAll(() => { unregisterResource("fake"); unregisterResource("scr"); });
 
 const prefs = (): Prefs => { const d = new Map<string, string>(); return { get: (k) => d.get(k) ?? null, set: (k, v) => { d.set(k, v); } }; };
 
@@ -40,6 +41,18 @@ describe("pestañas de recurso", () => {
     const m = TabsModel.initial("", "");
     expect(assemble(' incbin "main.asm"\n', asmOptsFor(m)).errors).toHaveLength(1);
     expect(assemble(' incbin "nada.fake"\n', asmOptsFor(m)).errors).toHaveLength(1);
+  });
+
+  it("INCBIN de una pantalla .scr da sus 6912 bytes: bitmap y atributos en su sitio", () => {
+    const m = TabsModel.initial("", "");
+    const scr = emptyScr();
+    scr[0x0121] = 0x40; scr[6144 + 33] = 0x47;
+    m.add("titulo.scr", encodeScrDoc(scr));
+    const r = assemble(' org 4000h\n incbin "titulo.scr"\nend: nop\n', asmOptsFor(m));
+    expect(r.errors).toEqual([]);
+    expect(r.symbols.get("end")).toBe(0x4000 + 6912);
+    const b = r.segments[0]!.bytes;
+    expect([b[0x0121], b[6144 + 33], b[6144], b[6911]]).toEqual([0x40, 0x47, 0x38, 0x38]);
   });
 
   it("se guarda y se recarga con el resto de pestañas", () => {

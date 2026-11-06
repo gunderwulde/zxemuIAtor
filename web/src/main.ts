@@ -11,6 +11,8 @@ import type { RunMessage } from "./ui/run";
 import { CLIB_FILES, C_EXAMPLES, DEFAULT_C_EXAMPLE } from "./clib";
 import { TabsEditor, buildAndRun, buildTapFor, mountTabsDebugger, type TabKind, type TabsDebugger } from "./ui/tabs";
 import { downloadBytes, stampedName } from "./export";
+import { registerBuiltinResources } from "./ui/res";
+import { resourceKinds } from "./res/registry";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -53,6 +55,7 @@ function showLog(lines: RunMessage[]): void {
 const say = (text: string) => showLog([{ severity: "info", text }]);
 let runProgram: (() => void) | null = null;
 let dbgUi: TabsDebugger | null = null;
+registerBuiltinResources();
 const tabs = new TabsEditor({
   bar: $("tabs"),
   host: $("editor"),
@@ -103,10 +106,12 @@ libSel.onchange = () => {
   if (f) tabs.openLib(f);
 };
 const newSel = $<HTMLSelectElement>("tab-new");
+for (const r of resourceKinds()) newSel.append(new Option(`Nueva ${r.label.toLowerCase()} .${r.ext}`, `res:${r.ext}`));
 newSel.onchange = () => {
-  const k = newSel.value as TabKind | "";
+  const v = newSel.value;
   newSel.value = "";
-  if (k) tabs.newTab(k);
+  if (v.startsWith("res:")) tabs.newResource(v.slice(4));
+  else if (v) tabs.newTab(v as TabKind);
 };
 
 // ---- Exportar TAP (E1): sólo construye, no necesita el núcleo ----

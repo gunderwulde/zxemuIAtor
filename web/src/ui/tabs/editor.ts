@@ -18,6 +18,8 @@ import { z80Language } from "../editor/z80lang";
 import { bpLinesEffect, bpLinesOf, currentLineEffect, debugExtension, toggleBpAtCursor } from "../debugger/editor-ext";
 import { type TabDiag, prepare } from "./build";
 import { cLanguage } from "./clang";
+import { resourceKindOf, resourceKinds } from "../../res/registry";
+import { type ResourceEditor, resourceEditorFor } from "../res";
 import { GEN_NAME, type Prefs, type Tab, type TabKind, TabsModel, hasMain, kindOf, langOf, libTabName } from "./model";
 
 const SAVE_DELAY = 400;
@@ -52,6 +54,8 @@ export class TabsEditor {
   private current = new Map<number, number | null>();
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private dragId: number | null = null;
+  /** Editor visual de la pestaña activa si es un recurso con editor (la vista de texto queda oculta). */
+  private pane: { id: number; ext: string; el: HTMLElement; ed: ResourceEditor } | null = null;
 
   constructor(private o: TabsEditorOptions) {
     this.model = TabsModel.load(o.prefs, o.defaults);
@@ -59,6 +63,37 @@ export class TabsEditor {
     // La activa vive en la vista; las demás, en this.states.
     this.view = new EditorView({ parent: o.host, state: this.takeStored(this.model.active!) });
     this.renderBar();
+    this.syncPane();
+  }
+
+  // ---- Recursos con editor visual ----
+
+  /**
+   * Muestra el editor visual si la pestaña activa es un recurso que lo tiene, y la vista de
+   * texto si no. El documento sigue siendo el del estado de CodeMirror: el editor visual lo
+   * lee y lo escribe a través de `io`, así guardado, deshacer y compilación no cambian.
+   */
+  private syncPane(): void {
+    const tab = this.model.active;
+    const factory = tab && !tab.ro ? resourceEditorFor(tab.name) : undefined;
+    const ext = tab ? (/.([^.]*)$/.exec(tab.name)?.[1] ?? "").toLowerCase() : "";
+    if (this.pane && (!factory || !tab || this.pane.id !== tab.id || this.pane.ext !== ext)) {
+      this.pane.ed.destroy();
+      this.pane.el.remove();
+      this.pane = null;
+    }
+    if (factory && tab && !this.pane) {
+      const el = document.createElement("div");
+      el.className = "res-pane";
+      this.o.host.append(el);
+      const io = {
+        getText: () => this.stateOf(tab).doc.toString(),
+        setText: (text: string) => this.updateTab(tab, { changes: { from: 0, to: this.stateOf(tab).doc.length, insert: text } }),
+        say: (t: string) => this.o.say(t),
+      };
+      this.pane = { id: tab.id, ext, el, ed: factory(el, io, tab.name) };
+    }
+    this.view.dom.style.display = this.pane ? "none" : "";
   }
 
   // ---- Estados ----
@@ -146,6 +181,7 @@ export class TabsEditor {
   // ---- Diagnósticos ----
 
   private lint(tab: Tab, state: EditorState): Diagnostic[] {
+    if (resourceKindOf(tab.name)) return [];
     const k = kindOf(tab.name);
     if (k === "asm") {
       const errs = assemble(state.doc.toString(), { include: (p) => this.textOf(p) ?? clibResolve(p), incbin: (p) => this.model.binOf(p) }).errors;
@@ -229,8 +265,19 @@ export class TabsEditor {
       requestAnimationFrame(() => { this.view.scrollDOM.scrollTop = top; });
     }
     this.renderBar();
+    this.syncPane();
     this.save();
     this.o.onSwitch?.(tab);
+  }
+
+  /** Nueva pestaña de recurso (p. ej. "scr") con el documento de su plantilla, en modo renombrar. */
+  newResource(ext: string): void {
+    const k = resourceKinds().find((r) => r.ext === ext);
+    if (!k) return;
+    this.flush();
+    const tab = this.model.add(this.model.freeName("nuevo", ext), k.template());
+    this.activate(tab.id);
+    this.startRename(tab.id);
   }
 
   /** Nueva pestaña de usuario (nombre libre "nuevo.ext") y la pone en modo renombrar. */
@@ -317,6 +364,7 @@ export class TabsEditor {
       }
     }
     this.renderBar();
+    this.syncPane();
     this.save();
     this.o.onBpsChanged();
   }
@@ -344,6 +392,7 @@ export class TabsEditor {
       else this.states.set(tab.id, next);
     }
     this.renderBar();
+    this.syncPane();
     this.save();
     this.o.onBpsChanged();
     return true;
