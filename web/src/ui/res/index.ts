@@ -5,6 +5,7 @@ import { registerResource } from "../../res/registry";
 import { scrResource } from "../../res/scr";
 import { tilesResource } from "../../res/tiles";
 import { mapResource } from "../../res/map";
+import { tapeResource } from "../../res/tape";
 import { createMapEditor } from "./map-editor";
 import { createScrEditor } from "./scr-editor";
 import { createTilesEditor } from "./tiles-editor";
@@ -44,4 +45,6 @@ export function registerBuiltinResources(): void {
   registerResourceEditor("tiles", createTilesEditor);
   registerResource(mapResource);
   registerResourceEditor("map", createMapEditor);
+  // Manifiesto de cinta: se edita como texto (JSON); la construcción está en ui/tabs/project.ts.
+  registerResource(tapeResource);
 }

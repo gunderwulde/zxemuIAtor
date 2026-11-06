@@ -13,6 +13,7 @@
 // entran, así que no chocan entre sí.
 
 import { resourceKindOf, resourceKinds, splitPart } from "../../res/registry";
+import { parseTapeDoc } from "../../res/tape";
 
 export type TabKind = "asm" | "c" | "h";
 export type ReadOnlyKind = "gen" | "lib";
@@ -60,8 +61,19 @@ export function hasMain(src: string): boolean {
   return /\bmain\s*\(/.test(stripC(src));
 }
 
+/** ¿Es un manifiesto de cinta (.tape)? Es el "proyecto": lo que se ejecuta construye la cinta entera. */
+export function isTape(tab: Tab): boolean {
+  return !tab.ro && resourceKindOf(tab.name)?.ext === "tape";
+}
+
+/** Pestañas fuente (.asm/.c) que usa un manifiesto; vacío si el documento no es válido. */
+export function tapeSources(text: string): string[] {
+  try { return [...new Set(parseTapeDoc(text).blocks.flatMap((b) => (b.type === "basic" ? [] : [b.src])))]; } catch { return []; }
+}
+
 export function isRunnable(tab: Tab): boolean {
   if (tab.ro) return false;
+  if (isTape(tab)) return true;
   const k = kindOf(tab.name);
   return k === "asm" || (k === "c" && hasMain(tab.text));
 }
@@ -162,11 +174,18 @@ export class TabsModel {
 
   setActive(id: number): void { if (this.get(id)) this.activeId = id; }
 
-  /** La activa si se puede ejecutar; si no, la principal (si aún se puede). */
+  /**
+   * La activa si se puede ejecutar; si no, la principal (si aún se puede). Si la principal
+   * es un proyecto (.tape) y la activa es una de sus fuentes, se ejecuta el proyecto: así
+   * Ctrl+Enter en cualquier fichero del juego arranca el juego, no un bloque suelto.
+   */
   runTarget(): Tab | undefined {
     const a = this.active;
-    if (a && isRunnable(a)) return a;
     const m = this.main;
+    if (a && isRunnable(a)) {
+      if (m && m !== a && isTape(m) && !isTape(a) && tapeSources(m.text).includes(a.name)) return m;
+      return a;
+    }
     return m && isRunnable(m) ? m : undefined;
   }
 

@@ -9,7 +9,8 @@ import { initSplitter, loadPref, savePref } from "./ui/layout";
 import { DEFAULT_EXAMPLE, EXAMPLES } from "./ui/editor/examples";
 import type { RunMessage } from "./ui/run";
 import { CLIB_FILES, C_EXAMPLES, DEFAULT_C_EXAMPLE } from "./clib";
-import { TabsEditor, buildAndRun, buildTapFor, mountTabsDebugger, type TabKind, type TabsDebugger } from "./ui/tabs";
+import { TabsEditor, buildAndRun, buildProject, buildTapFor, isTape, mountTabsDebugger, type TabKind, type TabsDebugger } from "./ui/tabs";
+import { startTape } from "./ui/tape-run";
 import { downloadBytes, stampedName } from "./export";
 import { registerBuiltinResources } from "./ui/res";
 import { resourceKinds } from "./res/registry";
@@ -119,6 +120,15 @@ $("asm-export-tap").onclick = () => {
   const target = runTarget();
   if (!target) return;
   tabs.model.setMain(target.id);
+  if (isTape(target)) {
+    // Proyecto: la cinta entera tal como la describe el manifiesto.
+    const p = buildProject(tabs.model, target);
+    tabs.showDiags(p.diags);
+    tabs.renderBar();
+    showLog(p.messages);
+    if (p.tap) downloadBytes(p.tap, stampedName(target.name.replace(/.[^.]*$/, ""), "tap", new Date()));
+    return;
+  }
   const r = buildTapFor(tabs.model, target);
   if (r.build.kind === "c" && r.build.ok) tabs.setGenerated(r.build.source);
   tabs.showDiags(r.diags);
@@ -303,6 +313,18 @@ async function boot(): Promise<void> {
     const target = runTarget();
     if (!target) return null;
     tabs.model.setMain(target.id);
+    if (isTape(target)) {
+      // Proyecto: se construye la cinta, se inserta y se teclea LOAD "".
+      const p = buildProject(tabs.model, target);
+      tabs.showDiags(p.diags);
+      tabs.renderBar();
+      showLog(p.messages);
+      if (!p.tap) return null;
+      const err = startTape(core, p.tap);
+      if (err) { showLog([{ severity: "error", text: `${target.name}: ${err}` }]); return null; }
+      display.draw();
+      return p;
+    }
     const r = buildAndRun(core, tabs.model, target);
     if (r.build.kind === "c" && r.build.ok) tabs.setGenerated(r.build.source);
     tabs.showDiags(r.diags);
@@ -317,6 +339,11 @@ async function boot(): Promise<void> {
   debugBtn.onclick = () => {
     const r = build();
     if (!r) return;
+    if ("tap" in r) {   // proyecto de cinta: arranca; el depurador se usa con Pausa y los breakpoints por dirección
+      say("Proyecto en marcha. Para depurar, pausa el emulador (el depurador trabaja sobre la memoria real).");
+      loop.setPaused(false);
+      return;
+    }
     // Un programa C para en main (el crt0 no tiene líneas C); uno en ensamblador, en la entrada.
     const main = r.build.kind === "c" ? r.report!.asm.symbols.get("_main") : undefined;
     if (main !== undefined) dbg.runTo(main);

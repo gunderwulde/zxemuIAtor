@@ -6,3 +6,4 @@ export { prepare, finish, buildAndRun, buildTapFor, type Build, type TabDiag, ty
 export { cLanguage, cParser } from "./clang";
 export { TabsEditor, type TabsEditorOptions } from "./editor";
 export { mountTabsDebugger, stepSourceLine, type TabsDebugger } from "./debug";
+export { buildProject, isTape, tapeSources, type ProjectBuild } from "./project";
