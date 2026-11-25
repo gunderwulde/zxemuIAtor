@@ -72,7 +72,8 @@ Diferencias y rarezas del original que se conservan a propósito:
 
 Scripts que se ejecutan como tests con `npx vitest run --config vitest.re.config.ts tools/re/<n>.re.ts`
 (no forman parte de `npm test`). Necesitan la cinta original en `tests/fixtures-local/sootland/`
-(`Sootland - Side 1.tzx` y `Side 2.tzx`, fuera del repositorio).
+(`Sootland - Side 1.tzx` y `Side 2.tzx`, versionadas con permiso de su autor; `work/` y `lift/`
+son intermedios que generan los scripts y no se versionan).
 
 1. `01`–`04`: arrancar la cinta en el núcleo, trazar con `Tracer` (cobertura de código y de
    inicios de instrucción) durante la intro y una partida con teclas pseudoaleatorias.

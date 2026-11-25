@@ -5,4 +5,8 @@ build/
 tests/fixtures/
 *.log
 .DS_Store
-tests/fixtures-local/
+tests/fixtures-local/*
+# Cinta original de Sootland (su autor, el dueño del repositorio, la publica aquí); lo derivado no.
+!tests/fixtures-local/sootland/
+tests/fixtures-local/sootland/*
+!tests/fixtures-local/sootland/*.tzx

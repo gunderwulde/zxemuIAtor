@@ -1,5 +1,5 @@
 // M3 — caso real: Sootland ("Shoot Land", Zafiro 1988), juego del usuario.
-// Los ficheros están en tests/fixtures-local/sootland/ (no versionados): si faltan, o si
+// Los ficheros están en tests/fixtures-local/sootland/ (los .tzx versionados): si faltan, o si
 // la CPU todavía es el stub, el test se salta con aviso.
 //
 // Hay dos cintas:
